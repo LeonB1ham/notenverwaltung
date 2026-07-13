@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from notenverwaltung.course import Course
-from notenverwaltung.student import Student
+from notenverwaltung.models.course import Course
+from notenverwaltung.models.student import Student
 
 
 @dataclass

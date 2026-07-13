@@ -1,9 +1,9 @@
 import sqlite3
 from sqlite3 import Connection, Row
 
-from notenverwaltung.course import Course
-from notenverwaltung.grade import Grade
-from notenverwaltung.student import Student
+from notenverwaltung.models.course import Course
+from notenverwaltung.models.grade import Grade
+from notenverwaltung.models.student import Student
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS students (

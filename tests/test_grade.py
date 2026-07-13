@@ -1,8 +1,8 @@
 import pytest
 
-from notenverwaltung.course import Course
-from notenverwaltung.grade import Grade
-from notenverwaltung.student import Student
+from notenverwaltung.models.course import Course
+from notenverwaltung.models.grade import Grade
+from notenverwaltung.models.student import Student
 
 
 @pytest.fixture

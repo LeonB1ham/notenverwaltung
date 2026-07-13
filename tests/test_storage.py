@@ -1,6 +1,6 @@
 import pytest
 
-from notenverwaltung.course import Course
+from notenverwaltung.models.course import Course
 from notenverwaltung.exceptions import (
     CourseNotFoundError,
     DuplicateEntryError,
@@ -8,7 +8,7 @@ from notenverwaltung.exceptions import (
 )
 from notenverwaltung.gradebook import GradeBook
 from notenverwaltung.storage import GradeStore, InMemoryGradeStore, SqliteGradeStore
-from notenverwaltung.student import Student
+from notenverwaltung.models.student import Student
 
 
 def populate_gradebook(gradebook: GradeBook) -> None:
@@ -54,7 +54,7 @@ def test_store_missing_student_raises(grade_store: GradeStore) -> None:
 
 
 def test_store_record_and_list_grades(grade_store: GradeStore) -> None:
-    from notenverwaltung.grade import Grade
+    from notenverwaltung.models.grade import Grade
 
     student = Student("S001", "Anna", "Schmidt", "anna@example.com")
     course = Course("CS101", "Intro to Programming")

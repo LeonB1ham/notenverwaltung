@@ -1,6 +1,6 @@
 import pytest
 
-from notenverwaltung.student import Student
+from notenverwaltung.models.student import Student
 
 
 @pytest.fixture

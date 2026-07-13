@@ -1,6 +1,5 @@
 """Student grade management system."""
 
-from notenverwaltung.course import Course
 from notenverwaltung.exceptions import (
     CourseNotFoundError,
     DuplicateEntryError,
@@ -8,15 +7,19 @@ from notenverwaltung.exceptions import (
     PersistenceError,
     StudentNotFoundError,
 )
-from notenverwaltung.grade import Grade
 from notenverwaltung.gradebook import CsvImportReport, GradeBook
+from notenverwaltung.models import Course, Grade, Student
+from notenverwaltung.reports import (
+    CsvReportGenerator,
+    ReportGenerator,
+    TextReportGenerator,
+)
 from notenverwaltung.storage import (
     GradeDatabase,
     GradeStore,
     InMemoryGradeStore,
     SqliteGradeStore,
 )
-from notenverwaltung.student import Student
 
 __all__ = [
     "Student",
@@ -28,6 +31,9 @@ __all__ = [
     "InMemoryGradeStore",
     "SqliteGradeStore",
     "GradeDatabase",
+    "ReportGenerator",
+    "TextReportGenerator",
+    "CsvReportGenerator",
     "NotenverwaltungError",
     "StudentNotFoundError",
     "CourseNotFoundError",

@@ -2,10 +2,10 @@ import json
 
 import pytest
 
-from notenverwaltung.course import Course
+from notenverwaltung.models.course import Course
 from notenverwaltung.exceptions import PersistenceError
 from notenverwaltung.gradebook import GradeBook
-from notenverwaltung.student import Student
+from notenverwaltung.models.student import Student
 
 
 @pytest.fixture

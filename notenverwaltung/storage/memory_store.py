@@ -1,12 +1,12 @@
-from notenverwaltung.course import Course
+from notenverwaltung.models.course import Course
 from notenverwaltung.exceptions import (
     CourseNotFoundError,
     DuplicateEntryError,
     StudentNotFoundError,
 )
-from notenverwaltung.grade import Grade
+from notenverwaltung.models.grade import Grade
 from notenverwaltung.storage.base import GradeStore
-from notenverwaltung.student import Student
+from notenverwaltung.models.student import Student
 
 
 class InMemoryGradeStore(GradeStore):
