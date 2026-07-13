@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import gradio as gr
+import pandas as pd
 
 from notenverwaltung.gradebook import GradeBook
 from notenverwaltung.models.course import Course
@@ -200,12 +201,14 @@ def build_app() -> gr.Blocks:
                 y_title="Count",
             )
 
-            def refresh_dashboard() -> tuple[str, list[dict[str, int]]]:
+            def refresh_dashboard() -> tuple[str, pd.DataFrame]:
                 summary, distribution = dashboard_stats()
-                chart_data = [
-                    {"letter": letter, "count": count}
-                    for letter, count in distribution.items()
-                ]
+                chart_data = pd.DataFrame(
+                    [
+                        {"letter": letter, "count": count}
+                        for letter, count in distribution.items()
+                    ]
+                )
                 return summary, chart_data
 
             refresh_btn.click(
