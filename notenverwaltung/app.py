@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import gradio as gr
 import pandas as pd
 
@@ -10,10 +12,14 @@ from notenverwaltung.models.course import Course
 from notenverwaltung.models.student import Student
 from notenverwaltung.reports.csv_report import CsvReportGenerator
 from notenverwaltung.reports.text_report import TextReportGenerator
+from notenverwaltung.storage.sqlite_store import SqliteGradeStore
+
+DB_PATH = Path(__file__).resolve().parent.parent / "grades.db"
+TEXT_REPORTS = TextReportGenerator()
+CSV_REPORTS = CsvReportGenerator()
 
 
-def create_sample_gradebook() -> GradeBook:
-    gradebook = GradeBook()
+def seed_sample_data(gradebook: GradeBook) -> None:
     gradebook.add_student(Student("S001", "Anna", "Schmidt", "anna@example.com"))
     gradebook.add_student(Student("S002", "Ben", "Mueller", "ben@example.com"))
     gradebook.add_course(Course("CS101", "Intro to Programming"))
@@ -21,12 +27,25 @@ def create_sample_gradebook() -> GradeBook:
     gradebook.record_grade("S001", "CS101", 85, "2026-01-15")
     gradebook.record_grade("S001", "CS102", 92, "2026-01-20")
     gradebook.record_grade("S002", "CS101", 45, "2026-01-15")
+
+
+def create_gradebook() -> GradeBook:
+    store = SqliteGradeStore(str(DB_PATH))
+    gradebook = GradeBook(_store=store)
+    if not gradebook.store.list_students() and not gradebook.store.list_courses():
+        seed_sample_data(gradebook)
     return gradebook
 
 
-GRADE_BOOK = create_sample_gradebook()
-TEXT_REPORTS = TextReportGenerator()
-CSV_REPORTS = CsvReportGenerator()
+GRADE_BOOK = create_gradebook()
+
+
+def student_ids() -> list[str]:
+    return [student.student_id for student in GRADE_BOOK.store.list_students()]
+
+
+def course_ids() -> list[str]:
+    return [course.course_id for course in GRADE_BOOK.store.list_courses()]
 
 
 def list_students() -> str:
@@ -85,10 +104,6 @@ def course_report(course_id: str) -> str:
         return f"Error: {exc}"
 
 
-def summary_report() -> str:
-    return TEXT_REPORTS.generate_summary_report(GRADE_BOOK)
-
-
 def csv_report(report_type: str, entity_id: str) -> str:
     try:
         if report_type == "Student":
@@ -110,85 +125,109 @@ def dashboard_stats() -> tuple[str, dict[str, int]]:
     return summary, distribution
 
 
+def updated_student_dropdowns() -> tuple:
+    ids = student_ids()
+    update = gr.update(choices=ids, value=ids[-1] if ids else None)
+    return update, update
+
+
+def updated_course_dropdowns() -> tuple:
+    ids = course_ids()
+    update = gr.update(choices=ids, value=ids[-1] if ids else None)
+    return update, update
+
+
+def update_report_entity_dropdown(report_type: str):
+    if report_type == "Student":
+        ids = student_ids()
+        return gr.update(
+            choices=ids,
+            value=ids[0] if ids else None,
+            visible=True,
+            label="Student ID",
+        )
+    if report_type == "Course":
+        ids = course_ids()
+        return gr.update(
+            choices=ids,
+            value=ids[0] if ids else None,
+            visible=True,
+            label="Course ID",
+        )
+    return gr.update(choices=[], value=None, visible=False, label="Student/Course ID")
+
+
 def build_app() -> gr.Blocks:
-    student_ids = [student.student_id for student in GRADE_BOOK.store.list_students()]
-    course_ids = [course.course_id for course in GRADE_BOOK.store.list_courses()]
+    initial_students = student_ids()
+    initial_courses = course_ids()
 
     with gr.Blocks(title="Notenverwaltung") as app:
         gr.Markdown("# Student Grade Tracker (Notenverwaltung)")
+        gr.Markdown(f"Database: `{DB_PATH}`")
 
         with gr.Tab("Students"):
             gr.Markdown("### Current Students")
             students_list = gr.Textbox(value=list_students(), lines=6, label="Students")
             with gr.Row():
-                student_id = gr.Textbox(label="Student ID")
+                new_student_id = gr.Textbox(label="Student ID")
                 first_name = gr.Textbox(label="First Name")
                 last_name = gr.Textbox(label="Last Name")
                 email = gr.Textbox(label="Email")
             add_student_btn = gr.Button("Add Student")
             add_student_result = gr.Textbox(label="Result")
             student_report_id = gr.Dropdown(
-                choices=student_ids, label="Student for Report", value=student_ids[0]
+                choices=initial_students,
+                label="Student for Report",
+                value=initial_students[0] if initial_students else None,
             )
             student_report_btn = gr.Button("View Student Report")
             student_report_output = gr.Textbox(label="Student Report", lines=12)
-
-            add_student_btn.click(
-                add_student,
-                inputs=[student_id, first_name, last_name, email],
-                outputs=add_student_result,
-            ).then(list_students, outputs=students_list)
-            student_report_btn.click(
-                student_report, inputs=student_report_id, outputs=student_report_output
-            )
 
         with gr.Tab("Courses"):
             gr.Markdown("### Current Courses")
             courses_list = gr.Textbox(value=list_courses(), lines=6, label="Courses")
             with gr.Row():
-                course_id = gr.Textbox(label="Course ID")
+                new_course_id = gr.Textbox(label="Course ID")
                 course_name = gr.Textbox(label="Course Name")
             add_course_btn = gr.Button("Add Course")
             add_course_result = gr.Textbox(label="Result")
             course_report_id = gr.Dropdown(
-                choices=course_ids, label="Course for Report", value=course_ids[0]
+                choices=initial_courses,
+                label="Course for Report",
+                value=initial_courses[0] if initial_courses else None,
             )
             course_report_btn = gr.Button("View Course Statistics")
             course_report_output = gr.Textbox(label="Course Report", lines=12)
 
-            add_course_btn.click(
-                add_course, inputs=[course_id, course_name], outputs=add_course_result
-            ).then(list_courses, outputs=courses_list)
-            course_report_btn.click(
-                course_report, inputs=course_report_id, outputs=course_report_output
-            )
-
         with gr.Tab("Grades"):
-            grade_student = gr.Dropdown(choices=student_ids, label="Student")
-            grade_course = gr.Dropdown(choices=course_ids, label="Course")
+            grade_student = gr.Dropdown(
+                choices=initial_students,
+                label="Student",
+                value=initial_students[0] if initial_students else None,
+            )
+            grade_course = gr.Dropdown(
+                choices=initial_courses,
+                label="Course",
+                value=initial_courses[0] if initial_courses else None,
+            )
             grade_score = gr.Number(label="Score", value=75)
             grade_date = gr.Textbox(label="Date (YYYY-MM-DD)", value="2026-01-15")
             grade_notes = gr.Textbox(label="Notes")
             record_grade_btn = gr.Button("Record Grade")
             record_grade_result = gr.Textbox(label="Result")
-            record_grade_btn.click(
-                record_grade,
-                inputs=[grade_student, grade_course, grade_score, grade_date, grade_notes],
-                outputs=record_grade_result,
-            )
 
         with gr.Tab("Reports"):
             report_type = gr.Radio(
                 ["Student", "Course", "Summary"], value="Summary", label="Report Type"
             )
             report_entity = gr.Dropdown(
-                choices=student_ids, label="Student/Course ID", value=student_ids[0]
+                choices=[],
+                label="Student/Course ID",
+                value=None,
+                visible=False,
             )
             generate_csv_btn = gr.Button("Generate CSV Report")
             csv_output = gr.Textbox(label="CSV Output", lines=12)
-            generate_csv_btn.click(
-                csv_report, inputs=[report_type, report_entity], outputs=csv_output
-            )
 
         with gr.Tab("Dashboard"):
             refresh_btn = gr.Button("Refresh Dashboard")
@@ -201,21 +240,63 @@ def build_app() -> gr.Blocks:
                 y_title="Count",
             )
 
-            def refresh_dashboard() -> tuple[str, pd.DataFrame]:
-                summary, distribution = dashboard_stats()
-                chart_data = pd.DataFrame(
-                    [
-                        {"letter": letter, "count": count}
-                        for letter, count in distribution.items()
-                    ]
-                )
-                return summary, chart_data
+        add_student_btn.click(
+            add_student,
+            inputs=[new_student_id, first_name, last_name, email],
+            outputs=add_student_result,
+        ).then(list_students, outputs=students_list).then(
+            updated_student_dropdowns,
+            outputs=[student_report_id, grade_student],
+        )
 
-            refresh_btn.click(
-                refresh_dashboard,
-                outputs=[dashboard_text, grade_chart],
+        student_report_btn.click(
+            student_report, inputs=student_report_id, outputs=student_report_output
+        )
+
+        add_course_btn.click(
+            add_course,
+            inputs=[new_course_id, course_name],
+            outputs=add_course_result,
+        ).then(list_courses, outputs=courses_list).then(
+            updated_course_dropdowns,
+            outputs=[course_report_id, grade_course],
+        )
+
+        course_report_btn.click(
+            course_report, inputs=course_report_id, outputs=course_report_output
+        )
+
+        record_grade_btn.click(
+            record_grade,
+            inputs=[grade_student, grade_course, grade_score, grade_date, grade_notes],
+            outputs=record_grade_result,
+        )
+
+        generate_csv_btn.click(
+            csv_report, inputs=[report_type, report_entity], outputs=csv_output
+        )
+
+        report_type.change(
+            update_report_entity_dropdown,
+            inputs=report_type,
+            outputs=report_entity,
+        )
+
+        def refresh_dashboard() -> tuple[str, pd.DataFrame]:
+            summary, distribution = dashboard_stats()
+            chart_data = pd.DataFrame(
+                [
+                    {"letter": letter, "count": count}
+                    for letter, count in distribution.items()
+                ]
             )
-            app.load(refresh_dashboard, outputs=[dashboard_text, grade_chart])
+            return summary, chart_data
+
+        refresh_btn.click(
+            refresh_dashboard,
+            outputs=[dashboard_text, grade_chart],
+        )
+        app.load(refresh_dashboard, outputs=[dashboard_text, grade_chart])
 
     return app
 

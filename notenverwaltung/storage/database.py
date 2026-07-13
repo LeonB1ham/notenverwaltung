@@ -36,8 +36,13 @@ CREATE TABLE IF NOT EXISTS grades (
 class GradeDatabase:
     def __init__(self, db_path: str = ":memory:") -> None:
         self.db_path = db_path
-        self._conn: Connection = sqlite3.connect(db_path)
+        self._conn: Connection = sqlite3.connect(
+            db_path,
+            check_same_thread=False,
+        )
         self._conn.row_factory = sqlite3.Row
+        if db_path != ":memory:":
+            self._conn.execute("PRAGMA journal_mode=WAL")
         self._create_schema()
 
     def close(self) -> None:

@@ -17,11 +17,15 @@ dev = [
 ]
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
 
-[tool.hatch.build.targets.wheel]
-packages = ["notenverwaltung"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["notenverwaltung*"]
+
+[tool.uv]
+config-settings = { editable_mode = "compat" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
