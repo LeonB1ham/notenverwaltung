@@ -202,9 +202,11 @@ def clear_course_form():
 
 
 def record_grade(
-    student_id: str, course_id: str, score: float, date: str, notes: str
+    student_choice: str, course_choice: str, score: float, date: str, notes: str
 ) -> str:
     try:
+        student_id = _parse_choice_id(student_choice)
+        course_id = _parse_choice_id(course_choice)
         if not student_id or not course_id:
             return "Error: student and course must be selected."
         date_value = _normalize_date(date)
@@ -241,25 +243,36 @@ def _normalize_date(date: str | float | int | None) -> str:
         raise ValueError(f"Invalid date: {date}") from exc
 
 
-def student_report(student_id: str) -> str:
+def student_report(student_choice: str) -> str:
     try:
+        student_id = _parse_choice_id(student_choice)
+        if not student_id:
+            return "Error: please select a student."
         return TEXT_REPORTS.generate_student_report(student_id, GRADE_BOOK)
     except Exception as exc:
         return f"Error: {exc}"
 
 
-def course_report(course_id: str) -> str:
+def course_report(course_choice: str) -> str:
     try:
+        course_id = _parse_choice_id(course_choice)
+        if not course_id:
+            return "Error: please select a course."
         return TEXT_REPORTS.generate_course_report(course_id, GRADE_BOOK)
     except Exception as exc:
         return f"Error: {exc}"
 
 
-def csv_report(report_type: str, entity_id: str) -> str:
+def csv_report(report_type: str, entity_choice: str) -> str:
     try:
+        entity_id = _parse_choice_id(entity_choice)
         if report_type == "Student":
+            if not entity_id:
+                return "Error: please select a student."
             return CSV_REPORTS.generate_student_report(entity_id, GRADE_BOOK)
         if report_type == "Course":
+            if not entity_id:
+                return "Error: please select a course."
             return CSV_REPORTS.generate_course_report(entity_id, GRADE_BOOK)
         return CSV_REPORTS.generate_summary_report(GRADE_BOOK)
     except Exception as exc:
@@ -353,15 +366,15 @@ def clear_database(confirmed: bool, reload_sample: bool) -> str:
 
 
 def refresh_all_lists_and_dropdowns() -> tuple:
-    students = student_ids()
-    courses = course_ids()
     student_pick_choices = student_choices()
     course_pick_choices = course_choices()
     student_update = gr.update(
-        choices=students, value=students[0] if students else None
+        choices=student_pick_choices,
+        value=student_pick_choices[0] if student_pick_choices else None,
     )
     course_update = gr.update(
-        choices=courses, value=courses[0] if courses else None
+        choices=course_pick_choices,
+        value=course_pick_choices[0] if course_pick_choices else None,
     )
     return (
         gr.update(choices=student_pick_choices, value=None),
@@ -392,40 +405,38 @@ def dashboard_stats() -> tuple[str, dict[str, int]]:
 
 
 def updated_student_dropdowns() -> tuple:
-    ids = student_ids()
-    update = gr.update(choices=ids, value=ids[-1] if ids else None)
+    choices = student_choices()
+    update = gr.update(choices=choices, value=choices[-1] if choices else None)
     return update, update
 
 
 def updated_course_dropdowns() -> tuple:
-    ids = course_ids()
-    update = gr.update(choices=ids, value=ids[-1] if ids else None)
+    choices = course_choices()
+    update = gr.update(choices=choices, value=choices[-1] if choices else None)
     return update, update
 
 
 def update_report_entity_dropdown(report_type: str):
     if report_type == "Student":
-        ids = student_ids()
+        choices = student_choices()
         return gr.update(
-            choices=ids,
-            value=ids[0] if ids else None,
+            choices=choices,
+            value=choices[0] if choices else None,
             visible=True,
-            label="Student ID",
+            label="Student",
         )
     if report_type == "Course":
-        ids = course_ids()
+        choices = course_choices()
         return gr.update(
-            choices=ids,
-            value=ids[0] if ids else None,
+            choices=choices,
+            value=choices[0] if choices else None,
             visible=True,
-            label="Course ID",
+            label="Course",
         )
-    return gr.update(choices=[], value=None, visible=False, label="Student/Course ID")
+    return gr.update(choices=[], value=None, visible=False, label="Student/Course")
 
 
 def build_app() -> gr.Blocks:
-    initial_students = student_ids()
-    initial_courses = course_ids()
     initial_student_choices = student_choices()
     initial_course_choices = course_choices()
 
@@ -450,9 +461,9 @@ def build_app() -> gr.Blocks:
             save_student_btn = gr.Button("Add Student")
             add_student_result = gr.Textbox(label="Result")
             student_report_id = gr.Dropdown(
-                choices=initial_students,
+                choices=initial_student_choices,
                 label="Student for Report",
-                value=initial_students[0] if initial_students else None,
+                value=initial_student_choices[0] if initial_student_choices else None,
             )
             student_report_btn = gr.Button("View Student Report")
             student_report_output = gr.Textbox(label="Student Report", lines=12)
@@ -472,23 +483,23 @@ def build_app() -> gr.Blocks:
             save_course_btn = gr.Button("Add Course")
             add_course_result = gr.Textbox(label="Result")
             course_report_id = gr.Dropdown(
-                choices=initial_courses,
+                choices=initial_course_choices,
                 label="Course for Report",
-                value=initial_courses[0] if initial_courses else None,
+                value=initial_course_choices[0] if initial_course_choices else None,
             )
             course_report_btn = gr.Button("View Course Statistics")
             course_report_output = gr.Textbox(label="Course Report", lines=12)
 
         with gr.Tab("Grades"):
             grade_student = gr.Dropdown(
-                choices=initial_students,
+                choices=initial_student_choices,
                 label="Student",
-                value=initial_students[0] if initial_students else None,
+                value=initial_student_choices[0] if initial_student_choices else None,
             )
             grade_course = gr.Dropdown(
-                choices=initial_courses,
+                choices=initial_course_choices,
                 label="Course",
-                value=initial_courses[0] if initial_courses else None,
+                value=initial_course_choices[0] if initial_course_choices else None,
             )
             grade_score = gr.Slider(minimum=0, maximum=100, label="Score", value=75)
             grade_date = gr.DateTime(label="Date (YYYY-MM-DD)", type="string", include_time=False, interactive=True)
