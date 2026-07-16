@@ -288,6 +288,11 @@ class GradeBook:
                 )
                 continue
 
+            if self._grade_exists(student_id, course_id, score, date, notes):
+                report.skipped += 1
+                report.errors.append(f"Line {line_number}: duplicate grade skipped")
+                continue
+
             try:
                 self.record_grade(student_id, course_id, score, date, notes)
             except ValueError as exc:
@@ -298,3 +303,20 @@ class GradeBook:
             report.imported += 1
 
         return report
+
+    def _grade_exists(
+        self,
+        student_id: str,
+        course_id: str,
+        score: float,
+        date: str,
+        notes: str = "",
+    ) -> bool:
+        return any(
+            grade.student.student_id == student_id
+            and grade.course.course_id == course_id
+            and float(grade.score) == float(score)
+            and grade.date == date
+            and (grade.notes or "") == (notes or "")
+            for grade in self._store.list_grades()
+        )

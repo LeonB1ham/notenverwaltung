@@ -15,6 +15,7 @@ from notenverwaltung.reports.text_report import TextReportGenerator
 from notenverwaltung.storage.sqlite_store import SqliteGradeStore
 
 DB_PATH = Path(__file__).resolve().parent.parent / "grades.db"
+EXPORT_DIR = Path(__file__).resolve().parent.parent / "exports"
 TEXT_REPORTS = TextReportGenerator()
 CSV_REPORTS = CsvReportGenerator()
 
@@ -84,10 +85,40 @@ def record_grade(
     student_id: str, course_id: str, score: float, date: str, notes: str
 ) -> str:
     try:
-        GRADE_BOOK.record_grade(student_id, course_id, score, date, notes)
+        if not student_id or not course_id:
+            return "Error: student and course must be selected."
+        date_value = _normalize_date(date)
+        GRADE_BOOK.record_grade(student_id, course_id, score, date_value, notes or "")
         return f"Recorded grade {score} for {student_id} in {course_id}."
     except Exception as exc:
         return f"Error: {exc}"
+
+
+def _normalize_date(date: str | float | int | None) -> str:
+    """Convert Gradio DateTime values to ISO date strings (YYYY-MM-DD)."""
+    if date is None or date == "":
+        raise ValueError("Date is required")
+
+    if isinstance(date, (int, float)):
+        from datetime import datetime, timezone
+
+        return datetime.fromtimestamp(float(date), tz=timezone.utc).strftime("%Y-%m-%d")
+
+    text = str(date).strip()
+    if "T" in text:
+        text = text.split("T", 1)[0]
+    if " " in text:
+        text = text.split(" ", 1)[0]
+    if len(text) >= 10 and text[4] == "-" and text[7] == "-":
+        return text[:10]
+
+    # Numeric timestamp coming through as string
+    try:
+        from datetime import datetime, timezone
+
+        return datetime.fromtimestamp(float(text), tz=timezone.utc).strftime("%Y-%m-%d")
+    except ValueError as exc:
+        raise ValueError(f"Invalid date: {date}") from exc
 
 
 def student_report(student_id: str) -> str:
@@ -111,6 +142,34 @@ def csv_report(report_type: str, entity_id: str) -> str:
         if report_type == "Course":
             return CSV_REPORTS.generate_course_report(entity_id, GRADE_BOOK)
         return CSV_REPORTS.generate_summary_report(GRADE_BOOK)
+    except Exception as exc:
+        return f"Error: {exc}"
+
+
+def export_grades_csv() -> tuple[str | None, str]:
+    try:
+        EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+        export_path = EXPORT_DIR / "grades_export.csv"
+        GRADE_BOOK.export_grades_csv(export_path)
+        count = len(GRADE_BOOK.store.list_grades())
+        return str(export_path), f"Exported {count} grade(s) to {export_path.name}."
+    except Exception as exc:
+        return None, f"Error: {exc}"
+
+
+def import_grades_csv(file_path: str | None) -> str:
+    if not file_path:
+        return "Error: please upload a CSV file first."
+    try:
+        report = GRADE_BOOK.import_grades_csv(file_path)
+        lines = [
+            f"Imported: {report.imported}",
+            f"Skipped: {report.skipped}",
+        ]
+        if report.errors:
+            lines.append("Errors:")
+            lines.extend(f"  - {error}" for error in report.errors)
+        return "\n".join(lines)
     except Exception as exc:
         return f"Error: {exc}"
 
@@ -161,13 +220,13 @@ def build_app() -> gr.Blocks:
     initial_students = student_ids()
     initial_courses = course_ids()
 
-    with gr.Blocks(title="Notenverwaltung") as app:
+    with gr.Blocks(title="Notenverwaltung", theme=gr.Theme.from_hub("VikramSingh178/Webui-Theme")) as app:
         gr.Markdown("# Student Grade Tracker (Notenverwaltung)")
         gr.Markdown(f"Database: `{DB_PATH}`")
 
         with gr.Tab("Students"):
             gr.Markdown("### Current Students")
-            students_list = gr.Textbox(value=list_students(), lines=6, label="Students")
+            students_list = gr.Textbox(value=list_students(), lines=5, max_lines=10, label="Students")
             with gr.Row():
                 new_student_id = gr.Textbox(label="Student ID")
                 first_name = gr.Textbox(label="First Name")
@@ -185,7 +244,7 @@ def build_app() -> gr.Blocks:
 
         with gr.Tab("Courses"):
             gr.Markdown("### Current Courses")
-            courses_list = gr.Textbox(value=list_courses(), lines=6, label="Courses")
+            courses_list = gr.Textbox(value=list_courses(), lines=6, max_lines=10, label="Courses")
             with gr.Row():
                 new_course_id = gr.Textbox(label="Course ID")
                 course_name = gr.Textbox(label="Course Name")
@@ -210,8 +269,8 @@ def build_app() -> gr.Blocks:
                 label="Course",
                 value=initial_courses[0] if initial_courses else None,
             )
-            grade_score = gr.Number(label="Score", value=75)
-            grade_date = gr.Textbox(label="Date (YYYY-MM-DD)", value="2026-01-15")
+            grade_score = gr.Slider(minimum=0, maximum=100, label="Score", value=75)
+            grade_date = gr.DateTime(label="Date (YYYY-MM-DD)", type="string", include_time=False, interactive=True)
             grade_notes = gr.Textbox(label="Notes")
             record_grade_btn = gr.Button("Record Grade")
             record_grade_result = gr.Textbox(label="Result")
@@ -228,6 +287,28 @@ def build_app() -> gr.Blocks:
             )
             generate_csv_btn = gr.Button("Generate CSV Report")
             csv_output = gr.Textbox(label="CSV Output", lines=12)
+
+        with gr.Tab("Import / Export"):
+            gr.Markdown(
+                "### CSV grades format\n"
+                "`student_id,course_id,score,date` (optional `notes`)\n\n"
+                "Students and courses must already exist before import."
+            )
+            with gr.Row():
+                with gr.Column():
+                    gr.Markdown("#### Export grades")
+                    export_btn = gr.Button("Export Grades to CSV")
+                    export_file = gr.File(label="Download exported CSV")
+                    export_result = gr.Textbox(label="Export result")
+                with gr.Column():
+                    gr.Markdown("#### Import grades")
+                    import_file = gr.File(
+                        label="Upload CSV file",
+                        file_types=[".csv"],
+                        type="filepath",
+                    )
+                    import_btn = gr.Button("Import Grades from CSV")
+                    import_result = gr.Textbox(label="Import report", lines=10)
 
         with gr.Tab("Dashboard"):
             refresh_btn = gr.Button("Refresh Dashboard")
@@ -282,6 +363,17 @@ def build_app() -> gr.Blocks:
             outputs=report_entity,
         )
 
+        export_btn.click(
+            export_grades_csv,
+            outputs=[export_file, export_result],
+        )
+
+        import_btn.click(
+            import_grades_csv,
+            inputs=import_file,
+            outputs=import_result,
+        )
+
         def refresh_dashboard() -> tuple[str, pd.DataFrame]:
             summary, distribution = dashboard_stats()
             chart_data = pd.DataFrame(
@@ -302,7 +394,7 @@ def build_app() -> gr.Blocks:
 
 
 def main() -> None:
-    build_app().launch()
+    build_app().launch()#(share=True)
 
 
 if __name__ == "__main__":

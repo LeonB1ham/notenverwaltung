@@ -12,6 +12,9 @@ venv/
 # Testing
 .pytest_cache/
 
+# Gradio
+.gradio/
+
 # OS
 .DS_Store
 
@@ -19,8 +22,9 @@ venv/
 .idea/
 .vscode/
 
-# Local databases
+# Local databases and exports
 *.db
 *.db-shm
 *.db-wal
 *.sqlite3
+exports/

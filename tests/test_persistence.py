@@ -112,6 +112,32 @@ def test_import_grades_csv_skips_invalid_lines(tmp_path) -> None:
     assert len(gb.grades) == 1
 
 
+def test_import_grades_csv_skips_duplicates(tmp_path) -> None:
+    gb = GradeBook()
+    gb.add_student(Student("S001", "Anna", "Schmidt", "anna@example.com"))
+    gb.add_course(Course("CS101", "Intro to Programming"))
+    gb.record_grade("S001", "CS101", 85, "2026-01-15", "ok")
+
+    csv_path = tmp_path / "grades.csv"
+    csv_path.write_text(
+        "\n".join(
+            [
+                "student_id,course_id,score,date,notes",
+                "S001,CS101,85,2026-01-15,ok",
+                "S001,CS101,85,2026-01-15,ok",
+                "S001,CS101,90,2026-01-20,",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    report = gb.import_grades_csv(csv_path)
+    assert report.imported == 1
+    assert report.skipped == 2
+    assert any("duplicate" in error for error in report.errors)
+    assert len(gb.grades) == 2
+
+
 def test_import_grades_csv_missing_file_raises(tmp_path) -> None:
     gb = GradeBook()
     with pytest.raises(PersistenceError, match="Failed to read grades"):
