@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 
 import gradio as gr
@@ -473,7 +474,7 @@ def build_app() -> gr.Blocks:
     initial_student_choices = student_choices()
     initial_course_choices = course_choices()
 
-    with gr.Blocks(title="Notenverwaltung", theme=gr.Theme.from_hub("VikramSingh178/Webui-Theme")) as app:
+    with gr.Blocks(title="Notenverwaltung") as app:
         gr.Markdown("# Student Grade Tracker (Notenverwaltung)")
         gr.Markdown(f"Database: `{DB_PATH}`")
 
@@ -535,7 +536,13 @@ def build_app() -> gr.Blocks:
                 value=initial_course_choices[0] if initial_course_choices else None,
             )
             grade_score = gr.Slider(minimum=0, maximum=100, label="Score", value=75)
-            grade_date = gr.DateTime(label="Date (YYYY-MM-DD)", type="string", include_time=False, interactive=True)
+            grade_date = gr.DateTime(
+                value=date.today().isoformat(),
+                label="Date (YYYY-MM-DD)",
+                type="string",
+                include_time=False,
+                interactive=True,
+            )
             grade_notes = gr.Textbox(label="Notes")
             record_grade_btn = gr.Button("Record Grade")
             record_grade_result = gr.Textbox(label="Result")
@@ -802,7 +809,7 @@ def build_app() -> gr.Blocks:
 
 
 def main() -> None:
-    build_app().launch()#(share=True)
+    build_app().launch(theme=gr.Theme.from_hub("VikramSingh178/Webui-Theme"))
 
 
 if __name__ == "__main__":
