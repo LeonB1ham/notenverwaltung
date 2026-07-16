@@ -445,16 +445,82 @@ def grades_for_letter(letter: str | None) -> str:
     return "\n".join(lines)
 
 
-def updated_student_dropdowns() -> tuple:
-    choices = student_choices()
-    update = gr.update(choices=choices, value=choices[-1] if choices else None)
-    return update, update
+def _keep_choice(
+    current: str | None,
+    choices: list[str],
+    *,
+    fallback_first: bool = False,
+) -> str | None:
+    if current and current in choices:
+        return current
+    if fallback_first and choices:
+        return choices[0]
+    return None
 
 
-def updated_course_dropdowns() -> tuple:
-    choices = course_choices()
-    update = gr.update(choices=choices, value=choices[-1] if choices else None)
-    return update, update
+def sync_entity_dropdowns(
+    student_picker_val: str | None,
+    course_picker_val: str | None,
+    student_report_val: str | None,
+    grade_student_val: str | None,
+    course_report_val: str | None,
+    grade_course_val: str | None,
+    report_type: str,
+    report_entity_val: str | None,
+) -> tuple:
+    """Reload student/course dropdowns from the database (multi-user / share safe)."""
+    students = student_choices()
+    courses = course_choices()
+
+    if report_type == "Student":
+        report_entity = gr.update(
+            choices=students,
+            value=_keep_choice(report_entity_val, students, fallback_first=True),
+            visible=True,
+            label="Student",
+        )
+    elif report_type == "Course":
+        report_entity = gr.update(
+            choices=courses,
+            value=_keep_choice(report_entity_val, courses, fallback_first=True),
+            visible=True,
+            label="Course",
+        )
+    else:
+        report_entity = gr.update(
+            choices=[],
+            value=None,
+            visible=False,
+            label="Student/Course",
+        )
+
+    return (
+        gr.update(
+            choices=students,
+            value=_keep_choice(student_picker_val, students),
+        ),
+        gr.update(
+            choices=courses,
+            value=_keep_choice(course_picker_val, courses),
+        ),
+        gr.update(
+            choices=students,
+            value=_keep_choice(student_report_val, students, fallback_first=True),
+        ),
+        gr.update(
+            choices=students,
+            value=_keep_choice(grade_student_val, students, fallback_first=True),
+        ),
+        gr.update(
+            choices=courses,
+            value=_keep_choice(course_report_val, courses, fallback_first=True),
+        ),
+        gr.update(
+            choices=courses,
+            value=_keep_choice(grade_course_val, courses, fallback_first=True),
+        ),
+        report_entity,
+    )
 
 
 def update_report_entity_dropdown(report_type: str):
@@ -484,6 +550,9 @@ def build_app() -> gr.Blocks:
     with gr.Blocks(title="Notenverwaltung") as app:
         gr.Markdown("# Student Grade Tracker (Notenverwaltung)")
         gr.Markdown(f"Database: `{DB_PATH}`")
+        with gr.Row():
+            refresh_lists_btn = gr.Button("Refresh lists", variant="secondary")
+        list_sync_timer = gr.Timer(5)
 
         with gr.Tab("Students"):
             gr.Markdown("### Students")
@@ -648,6 +717,42 @@ def build_app() -> gr.Blocks:
             ],
         )
 
+        list_dropdown_inputs = [
+            student_picker,
+            course_picker,
+            student_report_id,
+            grade_student,
+            course_report_id,
+            grade_course,
+            report_type,
+            report_entity,
+        ]
+        list_dropdown_outputs = [
+            student_picker,
+            course_picker,
+            student_report_id,
+            grade_student,
+            course_report_id,
+            grade_course,
+            report_entity,
+        ]
+
+        refresh_lists_btn.click(
+            sync_entity_dropdowns,
+            inputs=list_dropdown_inputs,
+            outputs=list_dropdown_outputs,
+        )
+        list_sync_timer.tick(
+            sync_entity_dropdowns,
+            inputs=list_dropdown_inputs,
+            outputs=list_dropdown_outputs,
+        )
+        app.load(
+            sync_entity_dropdowns,
+            inputs=list_dropdown_inputs,
+            outputs=list_dropdown_outputs,
+        )
+
         clear_student_btn.click(
             clear_student_form,
             outputs=[
@@ -671,8 +776,9 @@ def build_app() -> gr.Blocks:
                 new_student_id,
             ],
         ).then(
-            updated_student_dropdowns,
-            outputs=[student_report_id, grade_student],
+            sync_entity_dropdowns,
+            inputs=list_dropdown_inputs,
+            outputs=list_dropdown_outputs,
         )
 
         student_report_btn.click(
@@ -712,8 +818,9 @@ def build_app() -> gr.Blocks:
                 new_course_id,
             ],
         ).then(
-            updated_course_dropdowns,
-            outputs=[course_report_id, grade_course],
+            sync_entity_dropdowns,
+            inputs=list_dropdown_inputs,
+            outputs=list_dropdown_outputs,
         )
 
         course_report_btn.click(
