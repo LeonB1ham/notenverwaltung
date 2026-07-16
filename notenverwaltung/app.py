@@ -109,6 +109,7 @@ def save_course(
     selected: str | None,
     course_id: str,
     name: str,
+    passing_grade: float,
 ) -> tuple:
     try:
         selected_id = _parse_choice_id(selected)
@@ -119,13 +120,15 @@ def save_course(
                     selected_id,
                     name,
                     max_grade=existing.max_grade,
-                    passing_grade=existing.passing_grade,
+                    passing_grade=float(passing_grade),
                 )
             )
             message = f"Updated course {name}."
             current_id = selected_id
         else:
-            GRADE_BOOK.add_course(Course(course_id, name))
+            GRADE_BOOK.add_course(
+                Course(course_id, name, passing_grade=float(passing_grade))
+            )
             message = f"Added course {name}."
             current_id = course_id
 
@@ -170,12 +173,14 @@ def load_course_for_edit(selected: str | None):
         return (
             gr.update(value="", interactive=True),
             "",
+            50,
             gr.update(value="Add Course"),
         )
     course = GRADE_BOOK.store.get_course(course_id)
     return (
         gr.update(value=course.course_id, interactive=False),
         course.name,
+        course.passing_grade,
         gr.update(value="Update Course"),
     )
 
@@ -197,6 +202,7 @@ def clear_course_form():
         None,
         gr.update(value="", interactive=True),
         "",
+        50,
         gr.update(value="Add Course"),
         "",
     )
@@ -392,6 +398,7 @@ def refresh_all_lists_and_dropdowns() -> tuple:
         "",
         gr.update(value="", interactive=True),
         "",
+        50,
     )
 
 
@@ -514,6 +521,13 @@ def build_app() -> gr.Blocks:
             with gr.Row():
                 new_course_id = gr.Textbox(label="Course ID", interactive=True)
                 course_name = gr.Textbox(label="Course Name")
+            course_passing_grade = gr.Slider(
+                minimum=1,
+                maximum=100,
+                step=1,
+                value=50,
+                label="Passing grade",
+            )
             save_course_btn = gr.Button("Add Course")
             add_course_result = gr.Textbox(label="Result")
             course_report_id = gr.Dropdown(
@@ -671,6 +685,7 @@ def build_app() -> gr.Blocks:
             outputs=[
                 new_course_id,
                 course_name,
+                course_passing_grade,
                 save_course_btn,
             ],
         )
@@ -681,6 +696,7 @@ def build_app() -> gr.Blocks:
                 course_picker,
                 new_course_id,
                 course_name,
+                course_passing_grade,
                 save_course_btn,
                 add_course_result,
             ],
@@ -688,7 +704,7 @@ def build_app() -> gr.Blocks:
 
         save_course_btn.click(
             save_course,
-            inputs=[course_picker, new_course_id, course_name],
+            inputs=[course_picker, new_course_id, course_name, course_passing_grade],
             outputs=[
                 add_course_result,
                 course_picker,
@@ -747,6 +763,7 @@ def build_app() -> gr.Blocks:
                 email,
                 new_course_id,
                 course_name,
+                course_passing_grade,
             ],
         )
 
@@ -777,6 +794,7 @@ def build_app() -> gr.Blocks:
                 email,
                 new_course_id,
                 course_name,
+                course_passing_grade,
             ],
         )
 
