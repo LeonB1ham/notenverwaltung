@@ -66,8 +66,14 @@ class GradeBook:
     def add_student(self, student: Student) -> None:
         self._store.add_student(student)
 
+    def update_student(self, student: Student) -> None:
+        self._store.update_student(student)
+
     def add_course(self, course: Course) -> None:
         self._store.add_course(course)
+
+    def update_course(self, course: Course) -> None:
+        self._store.update_course(course)
 
     def record_grade(
         self,

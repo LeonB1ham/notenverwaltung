@@ -80,6 +80,22 @@ def test_store_clear_all(grade_store: GradeStore) -> None:
     assert grade_store.list_grades() == []
 
 
+def test_store_update_student_and_course(grade_store: GradeStore) -> None:
+    grade_store.add_student(Student("S001", "Anna", "Schmidt", "anna@example.com"))
+    grade_store.add_course(Course("CS101", "Intro to Programming"))
+
+    grade_store.update_student(Student("S001", "Anna", "Mueller", "anna.m@example.com"))
+    grade_store.update_course(
+        Course("CS101", "Programming I", max_grade=100.0, passing_grade=50.0)
+    )
+
+    student = grade_store.get_student("S001")
+    course = grade_store.get_course("CS101")
+    assert student.last_name == "Mueller"
+    assert student.email == "anna.m@example.com"
+    assert course.name == "Programming I"
+
+
 def test_gradebook_with_sqlite_store_matches_memory() -> None:
     memory_book = GradeBook()
     sqlite_store = SqliteGradeStore(":memory:")

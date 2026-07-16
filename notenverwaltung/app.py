@@ -49,36 +49,156 @@ def course_ids() -> list[str]:
     return [course.course_id for course in GRADE_BOOK.store.list_courses()]
 
 
-def list_students() -> str:
-    lines = [
-        f"{student.student_id}: {student.full_name} ({student.email})"
+def student_choices() -> list[str]:
+    return [
+        f"{student.student_id}: {student.full_name}"
         for student in GRADE_BOOK.store.list_students()
     ]
-    return "\n".join(lines) if lines else "No students yet."
 
 
-def list_courses() -> str:
-    lines = [
+def course_choices() -> list[str]:
+    return [
         f"{course.course_id}: {course.name}"
         for course in GRADE_BOOK.store.list_courses()
     ]
-    return "\n".join(lines) if lines else "No courses yet."
 
 
-def add_student(student_id: str, first_name: str, last_name: str, email: str) -> str:
+def _parse_choice_id(choice: str | None) -> str | None:
+    if not choice:
+        return None
+    return choice.split(":", 1)[0].strip() or None
+
+
+def save_student(
+    selected: str | None,
+    student_id: str,
+    first_name: str,
+    last_name: str,
+    email: str,
+) -> tuple:
     try:
-        GRADE_BOOK.add_student(Student(student_id, first_name, last_name, email))
-        return f"Added student {first_name} {last_name}."
+        selected_id = _parse_choice_id(selected)
+        if selected_id:
+            GRADE_BOOK.update_student(
+                Student(selected_id, first_name, last_name, email)
+            )
+            message = f"Updated student {first_name} {last_name}."
+            current_id = selected_id
+        else:
+            GRADE_BOOK.add_student(Student(student_id, first_name, last_name, email))
+            message = f"Added student {first_name} {last_name}."
+            current_id = student_id
+
+        choices = student_choices()
+        selected_choice = next(
+            (item for item in choices if item.startswith(f"{current_id}:")),
+            None,
+        )
+        return (
+            message,
+            gr.update(choices=choices, value=selected_choice),
+            gr.update(value="Update Student"),
+            gr.update(value=current_id, interactive=False),
+        )
     except Exception as exc:
-        return f"Error: {exc}"
+        return f"Error: {exc}", gr.update(), gr.update(), gr.update()
 
 
-def add_course(course_id: str, name: str) -> str:
+def save_course(
+    selected: str | None,
+    course_id: str,
+    name: str,
+) -> tuple:
     try:
-        GRADE_BOOK.add_course(Course(course_id, name))
-        return f"Added course {name}."
+        selected_id = _parse_choice_id(selected)
+        if selected_id:
+            existing = GRADE_BOOK.store.get_course(selected_id)
+            GRADE_BOOK.update_course(
+                Course(
+                    selected_id,
+                    name,
+                    max_grade=existing.max_grade,
+                    passing_grade=existing.passing_grade,
+                )
+            )
+            message = f"Updated course {name}."
+            current_id = selected_id
+        else:
+            GRADE_BOOK.add_course(Course(course_id, name))
+            message = f"Added course {name}."
+            current_id = course_id
+
+        choices = course_choices()
+        selected_choice = next(
+            (item for item in choices if item.startswith(f"{current_id}:")),
+            None,
+        )
+        return (
+            message,
+            gr.update(choices=choices, value=selected_choice),
+            gr.update(value="Update Course"),
+            gr.update(value=current_id, interactive=False),
+        )
     except Exception as exc:
-        return f"Error: {exc}"
+        return f"Error: {exc}", gr.update(), gr.update(), gr.update()
+
+
+def load_student_for_edit(selected: str | None):
+    student_id = _parse_choice_id(selected)
+    if not student_id:
+        return (
+            gr.update(value="", interactive=True),
+            "",
+            "",
+            "",
+            gr.update(value="Add Student"),
+        )
+    student = GRADE_BOOK.store.get_student(student_id)
+    return (
+        gr.update(value=student.student_id, interactive=False),
+        student.first_name,
+        student.last_name,
+        student.email,
+        gr.update(value="Update Student"),
+    )
+
+
+def load_course_for_edit(selected: str | None):
+    course_id = _parse_choice_id(selected)
+    if not course_id:
+        return (
+            gr.update(value="", interactive=True),
+            "",
+            gr.update(value="Add Course"),
+        )
+    course = GRADE_BOOK.store.get_course(course_id)
+    return (
+        gr.update(value=course.course_id, interactive=False),
+        course.name,
+        gr.update(value="Update Course"),
+    )
+
+
+def clear_student_form():
+    return (
+        None,
+        gr.update(value="", interactive=True),
+        "",
+        "",
+        "",
+        gr.update(value="Add Student"),
+        "",
+    )
+
+
+def clear_course_form():
+    return (
+        None,
+        gr.update(value="", interactive=True),
+        "",
+        gr.update(value="Add Course"),
+        "",
+    )
 
 
 def record_grade(
@@ -235,6 +355,8 @@ def clear_database(confirmed: bool, reload_sample: bool) -> str:
 def refresh_all_lists_and_dropdowns() -> tuple:
     students = student_ids()
     courses = course_ids()
+    student_pick_choices = student_choices()
+    course_pick_choices = course_choices()
     student_update = gr.update(
         choices=students, value=students[0] if students else None
     )
@@ -242,12 +364,20 @@ def refresh_all_lists_and_dropdowns() -> tuple:
         choices=courses, value=courses[0] if courses else None
     )
     return (
-        list_students(),
-        list_courses(),
+        gr.update(choices=student_pick_choices, value=None),
+        gr.update(choices=course_pick_choices, value=None),
         student_update,
         student_update,
         course_update,
         course_update,
+        gr.update(value="Add Student"),
+        gr.update(value="Add Course"),
+        gr.update(value="", interactive=True),
+        "",
+        "",
+        "",
+        gr.update(value="", interactive=True),
+        "",
     )
 
 
@@ -296,20 +426,28 @@ def update_report_entity_dropdown(report_type: str):
 def build_app() -> gr.Blocks:
     initial_students = student_ids()
     initial_courses = course_ids()
+    initial_student_choices = student_choices()
+    initial_course_choices = course_choices()
 
     with gr.Blocks(title="Notenverwaltung", theme=gr.Theme.from_hub("VikramSingh178/Webui-Theme")) as app:
         gr.Markdown("# Student Grade Tracker (Notenverwaltung)")
         gr.Markdown(f"Database: `{DB_PATH}`")
 
         with gr.Tab("Students"):
-            gr.Markdown("### Current Students")
-            students_list = gr.Textbox(value=list_students(), lines=5, max_lines=10, label="Students")
+            gr.Markdown("### Students")
+            student_picker = gr.Dropdown(
+                choices=initial_student_choices,
+                label="Select student to edit (leave empty to add new)",
+                value=None,
+                allow_custom_value=False,
+            )
+            clear_student_btn = gr.Button("New Student / Clear Form")
             with gr.Row():
-                new_student_id = gr.Textbox(label="Student ID")
+                new_student_id = gr.Textbox(label="Student ID", interactive=True)
                 first_name = gr.Textbox(label="First Name")
                 last_name = gr.Textbox(label="Last Name")
                 email = gr.Textbox(label="Email")
-            add_student_btn = gr.Button("Add Student")
+            save_student_btn = gr.Button("Add Student")
             add_student_result = gr.Textbox(label="Result")
             student_report_id = gr.Dropdown(
                 choices=initial_students,
@@ -320,12 +458,18 @@ def build_app() -> gr.Blocks:
             student_report_output = gr.Textbox(label="Student Report", lines=12)
 
         with gr.Tab("Courses"):
-            gr.Markdown("### Current Courses")
-            courses_list = gr.Textbox(value=list_courses(), lines=6, max_lines=10, label="Courses")
+            gr.Markdown("### Courses")
+            course_picker = gr.Dropdown(
+                choices=initial_course_choices,
+                label="Select course to edit (leave empty to add new)",
+                value=None,
+                allow_custom_value=False,
+            )
+            clear_course_btn = gr.Button("New Course / Clear Form")
             with gr.Row():
-                new_course_id = gr.Textbox(label="Course ID")
+                new_course_id = gr.Textbox(label="Course ID", interactive=True)
                 course_name = gr.Textbox(label="Course Name")
-            add_course_btn = gr.Button("Add Course")
+            save_course_btn = gr.Button("Add Course")
             add_course_result = gr.Textbox(label="Result")
             course_report_id = gr.Dropdown(
                 choices=initial_courses,
@@ -416,11 +560,41 @@ def build_app() -> gr.Blocks:
             clear_btn = gr.Button("Clear Database", variant="stop")
             clear_result = gr.Textbox(label="Result")
 
-        add_student_btn.click(
-            add_student,
-            inputs=[new_student_id, first_name, last_name, email],
-            outputs=add_student_result,
-        ).then(list_students, outputs=students_list).then(
+        student_picker.change(
+            load_student_for_edit,
+            inputs=student_picker,
+            outputs=[
+                new_student_id,
+                first_name,
+                last_name,
+                email,
+                save_student_btn,
+            ],
+        )
+
+        clear_student_btn.click(
+            clear_student_form,
+            outputs=[
+                student_picker,
+                new_student_id,
+                first_name,
+                last_name,
+                email,
+                save_student_btn,
+                add_student_result,
+            ],
+        )
+
+        save_student_btn.click(
+            save_student,
+            inputs=[student_picker, new_student_id, first_name, last_name, email],
+            outputs=[
+                add_student_result,
+                student_picker,
+                save_student_btn,
+                new_student_id,
+            ],
+        ).then(
             updated_student_dropdowns,
             outputs=[student_report_id, grade_student],
         )
@@ -429,11 +603,37 @@ def build_app() -> gr.Blocks:
             student_report, inputs=student_report_id, outputs=student_report_output
         )
 
-        add_course_btn.click(
-            add_course,
-            inputs=[new_course_id, course_name],
-            outputs=add_course_result,
-        ).then(list_courses, outputs=courses_list).then(
+        course_picker.change(
+            load_course_for_edit,
+            inputs=course_picker,
+            outputs=[
+                new_course_id,
+                course_name,
+                save_course_btn,
+            ],
+        )
+
+        clear_course_btn.click(
+            clear_course_form,
+            outputs=[
+                course_picker,
+                new_course_id,
+                course_name,
+                save_course_btn,
+                add_course_result,
+            ],
+        )
+
+        save_course_btn.click(
+            save_course,
+            inputs=[course_picker, new_course_id, course_name],
+            outputs=[
+                add_course_result,
+                course_picker,
+                save_course_btn,
+                new_course_id,
+            ],
+        ).then(
             updated_course_dropdowns,
             outputs=[course_report_id, grade_course],
         )
@@ -471,12 +671,20 @@ def build_app() -> gr.Blocks:
         ).then(
             refresh_all_lists_and_dropdowns,
             outputs=[
-                students_list,
-                courses_list,
+                student_picker,
+                course_picker,
                 student_report_id,
                 grade_student,
                 course_report_id,
                 grade_course,
+                save_student_btn,
+                save_course_btn,
+                new_student_id,
+                first_name,
+                last_name,
+                email,
+                new_course_id,
+                course_name,
             ],
         )
 
@@ -493,12 +701,20 @@ def build_app() -> gr.Blocks:
         ).then(
             refresh_all_lists_and_dropdowns,
             outputs=[
-                students_list,
-                courses_list,
+                student_picker,
+                course_picker,
                 student_report_id,
                 grade_student,
                 course_report_id,
                 grade_course,
+                save_student_btn,
+                save_course_btn,
+                new_student_id,
+                first_name,
+                last_name,
+                email,
+                new_course_id,
+                course_name,
             ],
         )
 

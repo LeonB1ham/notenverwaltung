@@ -28,6 +28,11 @@ class InMemoryGradeStore(GradeStore):
     def list_students(self) -> list[Student]:
         return list(self._students.values())
 
+    def update_student(self, student: Student) -> None:
+        if student.student_id not in self._students:
+            raise StudentNotFoundError(f"Student {student.student_id} not found")
+        self._students[student.student_id] = student
+
     def add_course(self, course: Course) -> None:
         if course.course_id in self._courses:
             raise DuplicateEntryError(f"Course {course.course_id} already exists")
@@ -40,6 +45,11 @@ class InMemoryGradeStore(GradeStore):
 
     def list_courses(self) -> list[Course]:
         return list(self._courses.values())
+
+    def update_course(self, course: Course) -> None:
+        if course.course_id not in self._courses:
+            raise CourseNotFoundError(f"Course {course.course_id} not found")
+        self._courses[course.course_id] = course
 
     def record_grade(self, grade: Grade) -> None:
         self._grades.append(grade)

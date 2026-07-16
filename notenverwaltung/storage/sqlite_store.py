@@ -40,6 +40,12 @@ class SqliteGradeStore(GradeStore):
     def list_students(self) -> list[Student]:
         return self._database.list_students()
 
+    def update_student(self, student: Student) -> None:
+        try:
+            self._database.update_student(student)
+        except KeyError as exc:
+            raise StudentNotFoundError(str(exc)) from exc
+
     def add_course(self, course: Course) -> None:
         try:
             self._database.add_course(course)
@@ -56,6 +62,12 @@ class SqliteGradeStore(GradeStore):
 
     def list_courses(self) -> list[Course]:
         return self._database.list_courses()
+
+    def update_course(self, course: Course) -> None:
+        try:
+            self._database.update_course(course)
+        except KeyError as exc:
+            raise CourseNotFoundError(str(exc)) from exc
 
     def record_grade(self, grade: Grade) -> None:
         self._database.add_grade(grade)

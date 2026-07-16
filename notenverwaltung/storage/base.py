@@ -19,6 +19,10 @@ class GradeStore(ABC):
         """Return all students."""
 
     @abstractmethod
+    def update_student(self, student: Student) -> None:
+        """Update an existing student (student_id must already exist)."""
+
+    @abstractmethod
     def add_course(self, course: Course) -> None:
         """Add a course to the store."""
 
@@ -29,6 +33,10 @@ class GradeStore(ABC):
     @abstractmethod
     def list_courses(self) -> list[Course]:
         """Return all courses."""
+
+    @abstractmethod
+    def update_course(self, course: Course) -> None:
+        """Update an existing course (course_id must already exist)."""
 
     @abstractmethod
     def record_grade(self, grade: Grade) -> None:

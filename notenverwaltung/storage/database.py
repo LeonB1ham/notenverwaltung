@@ -96,6 +96,24 @@ class GradeDatabase:
         ).fetchall()
         return [self._row_to_student(row) for row in rows]
 
+    def update_student(self, student: Student) -> None:
+        cursor = self._conn.execute(
+            """
+            UPDATE students
+            SET first_name = ?, last_name = ?, email = ?
+            WHERE student_id = ?
+            """,
+            (
+                student.first_name,
+                student.last_name,
+                student.email,
+                student.student_id,
+            ),
+        )
+        self._conn.commit()
+        if cursor.rowcount == 0:
+            raise KeyError(f"Student {student.student_id} not found")
+
     def add_course(self, course: Course) -> None:
         self._conn.execute(
             """
@@ -133,6 +151,24 @@ class GradeDatabase:
             """
         ).fetchall()
         return [self._row_to_course(row) for row in rows]
+
+    def update_course(self, course: Course) -> None:
+        cursor = self._conn.execute(
+            """
+            UPDATE courses
+            SET name = ?, max_grade = ?, passing_grade = ?
+            WHERE course_id = ?
+            """,
+            (
+                course.name,
+                course.max_grade,
+                course.passing_grade,
+                course.course_id,
+            ),
+        )
+        self._conn.commit()
+        if cursor.rowcount == 0:
+            raise KeyError(f"Course {course.course_id} not found")
 
     def add_grade(self, grade: Grade) -> None:
         self._conn.execute(
