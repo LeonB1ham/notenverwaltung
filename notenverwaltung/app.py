@@ -404,6 +404,68 @@ def dashboard_stats() -> tuple[str, dict[str, int]]:
     return summary, distribution
 
 
+def grades_for_letter(letter: str) -> str:
+    letter = letter.strip().upper()
+    if letter not in {"A", "B", "C", "D", "F"}:
+        return f"Unknown letter grade: {letter}"
+
+    matching = [
+        grade
+        for grade in GRADE_BOOK.store.list_grades()
+        if grade.letter_grade == letter
+    ]
+    if not matching:
+        return f"Letter grade: {letter}\n\nNo grades in this category."
+
+    average = sum(grade.score for grade in matching) / len(matching)
+    lines = [
+        f"Letter grade: {letter}",
+        f"Count: {len(matching)}",
+        f"Average score: {average:.1f}",
+        "",
+        f"{'Student':<28} {'Course':<28} {'Score':>6} {'Date':<12}",
+        "-" * 78,
+    ]
+    for grade in matching:
+        lines.append(
+            f"{grade.student.full_name:<28} {grade.course.name:<28} "
+            f"{grade.score:>6.1f} {grade.date:<12}"
+        )
+    return "\n".join(lines)
+
+
+def _extract_letter_from_select(evt: gr.SelectData) -> str | None:
+    letters = ("A", "B", "C", "D", "F")
+    candidates: list[object] = [evt.index, evt.value]
+
+    if isinstance(evt.index, (list, tuple)):
+        candidates.extend(evt.index)
+    if isinstance(evt.value, dict):
+        candidates.extend(evt.value.values())
+    if isinstance(evt.value, (list, tuple)):
+        candidates.extend(evt.value)
+
+    for candidate in candidates:
+        if candidate is None:
+            continue
+        text = str(candidate).strip().upper()
+        if text in letters:
+            return text
+        if isinstance(candidate, int) and 0 <= candidate < len(letters):
+            return letters[candidate]
+    return None
+
+
+def on_grade_chart_select(evt: gr.SelectData) -> str:
+    letter = _extract_letter_from_select(evt)
+    if letter is None:
+        return (
+            "Could not determine the selected letter grade.\n"
+            f"Debug: index={evt.index!r}, value={evt.value!r}"
+        )
+    return grades_for_letter(letter)
+
+
 def updated_student_dropdowns() -> tuple:
     choices = student_choices()
     update = gr.update(choices=choices, value=choices[-1] if choices else None)
@@ -552,6 +614,12 @@ def build_app() -> gr.Blocks:
                 title="Grade Distribution",
                 x_title="Letter Grade",
                 y_title="Count",
+            )
+            gr.Markdown("Click a bar to see students and grades for that letter.")
+            grade_detail = gr.Textbox(
+                label="Selected letter details",
+                lines=12,
+                value="Click a bar in the chart above.",
             )
 
         with gr.Tab("Extra"):
@@ -729,7 +797,7 @@ def build_app() -> gr.Blocks:
             ],
         )
 
-        def refresh_dashboard() -> tuple[str, pd.DataFrame]:
+        def refresh_dashboard() -> tuple[str, pd.DataFrame, str]:
             summary, distribution = dashboard_stats()
             chart_data = pd.DataFrame(
                 [
@@ -737,13 +805,18 @@ def build_app() -> gr.Blocks:
                     for letter, count in distribution.items()
                 ]
             )
-            return summary, chart_data
+            return summary, chart_data, "Click a bar in the chart above."
 
         refresh_btn.click(
             refresh_dashboard,
-            outputs=[dashboard_text, grade_chart],
+            outputs=[dashboard_text, grade_chart, grade_detail],
         )
-        app.load(refresh_dashboard, outputs=[dashboard_text, grade_chart])
+        app.load(refresh_dashboard, outputs=[dashboard_text, grade_chart, grade_detail])
+
+        grade_chart.select(
+            on_grade_chart_select,
+            outputs=grade_detail,
+        )
 
     return app
 
