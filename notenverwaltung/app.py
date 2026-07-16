@@ -146,32 +146,109 @@ def csv_report(report_type: str, entity_id: str) -> str:
         return f"Error: {exc}"
 
 
-def export_grades_csv() -> tuple[str | None, str]:
+CSV_FORMAT_HELP = {
+    "Students": (
+        "### Students CSV format\n"
+        "`student_id,first_name,last_name,email`\n\n"
+        "Duplicates (same student_id) are skipped."
+    ),
+    "Courses": (
+        "### Courses CSV format\n"
+        "`course_id,name,max_grade,passing_grade`\n\n"
+        "`max_grade` and `passing_grade` are optional "
+        "(defaults: 100 and 50). Duplicates are skipped."
+    ),
+    "Grades": (
+        "### Grades CSV format\n"
+        "`student_id,course_id,score,date` (optional `notes`)\n\n"
+        "Students and courses must already exist. Duplicate grades are skipped."
+    ),
+}
+
+
+def csv_format_help(entity: str) -> str:
+    return CSV_FORMAT_HELP.get(entity, CSV_FORMAT_HELP["Grades"])
+
+
+def _format_import_report(report) -> str:
+    lines = [
+        f"Imported: {report.imported}",
+        f"Skipped: {report.skipped}",
+    ]
+    if report.errors:
+        lines.append("Errors:")
+        lines.extend(f"  - {error}" for error in report.errors)
+    return "\n".join(lines)
+
+
+def export_csv(entity: str) -> tuple[str | None, str]:
     try:
         EXPORT_DIR.mkdir(parents=True, exist_ok=True)
-        export_path = EXPORT_DIR / "grades_export.csv"
-        GRADE_BOOK.export_grades_csv(export_path)
-        count = len(GRADE_BOOK.store.list_grades())
-        return str(export_path), f"Exported {count} grade(s) to {export_path.name}."
+        if entity == "Students":
+            export_path = EXPORT_DIR / "students_export.csv"
+            GRADE_BOOK.export_students_csv(export_path)
+            count = len(GRADE_BOOK.store.list_students())
+            label = "student(s)"
+        elif entity == "Courses":
+            export_path = EXPORT_DIR / "courses_export.csv"
+            GRADE_BOOK.export_courses_csv(export_path)
+            count = len(GRADE_BOOK.store.list_courses())
+            label = "course(s)"
+        else:
+            export_path = EXPORT_DIR / "grades_export.csv"
+            GRADE_BOOK.export_grades_csv(export_path)
+            count = len(GRADE_BOOK.store.list_grades())
+            label = "grade(s)"
+        return str(export_path), f"Exported {count} {label} to {export_path.name}."
     except Exception as exc:
         return None, f"Error: {exc}"
 
 
-def import_grades_csv(file_path: str | None) -> str:
+def import_csv(entity: str, file_path: str | None) -> str:
     if not file_path:
         return "Error: please upload a CSV file first."
     try:
-        report = GRADE_BOOK.import_grades_csv(file_path)
-        lines = [
-            f"Imported: {report.imported}",
-            f"Skipped: {report.skipped}",
-        ]
-        if report.errors:
-            lines.append("Errors:")
-            lines.extend(f"  - {error}" for error in report.errors)
-        return "\n".join(lines)
+        if entity == "Students":
+            report = GRADE_BOOK.import_students_csv(file_path)
+        elif entity == "Courses":
+            report = GRADE_BOOK.import_courses_csv(file_path)
+        else:
+            report = GRADE_BOOK.import_grades_csv(file_path)
+        return _format_import_report(report)
     except Exception as exc:
         return f"Error: {exc}"
+
+
+def clear_database(confirmed: bool, reload_sample: bool) -> str:
+    if not confirmed:
+        return "Error: confirm the action first (check the box)."
+    try:
+        GRADE_BOOK.store.clear_all()
+        if reload_sample:
+            seed_sample_data(GRADE_BOOK)
+            return "Database cleared and sample data reloaded."
+        return "Database cleared. All students, courses, and grades removed."
+    except Exception as exc:
+        return f"Error: {exc}"
+
+
+def refresh_all_lists_and_dropdowns() -> tuple:
+    students = student_ids()
+    courses = course_ids()
+    student_update = gr.update(
+        choices=students, value=students[0] if students else None
+    )
+    course_update = gr.update(
+        choices=courses, value=courses[0] if courses else None
+    )
+    return (
+        list_students(),
+        list_courses(),
+        student_update,
+        student_update,
+        course_update,
+        course_update,
+    )
 
 
 def dashboard_stats() -> tuple[str, dict[str, int]]:
@@ -289,25 +366,26 @@ def build_app() -> gr.Blocks:
             csv_output = gr.Textbox(label="CSV Output", lines=12)
 
         with gr.Tab("Import / Export"):
-            gr.Markdown(
-                "### CSV grades format\n"
-                "`student_id,course_id,score,date` (optional `notes`)\n\n"
-                "Students and courses must already exist before import."
+            csv_entity = gr.Radio(
+                ["Students", "Courses", "Grades"],
+                value="Grades",
+                label="Data type",
             )
+            csv_help = gr.Markdown(csv_format_help("Grades"))
             with gr.Row():
                 with gr.Column():
-                    gr.Markdown("#### Export grades")
-                    export_btn = gr.Button("Export Grades to CSV")
+                    gr.Markdown("#### Export")
+                    export_btn = gr.Button("Export to CSV")
                     export_file = gr.File(label="Download exported CSV")
                     export_result = gr.Textbox(label="Export result")
                 with gr.Column():
-                    gr.Markdown("#### Import grades")
+                    gr.Markdown("#### Import")
                     import_file = gr.File(
                         label="Upload CSV file",
                         file_types=[".csv"],
                         type="filepath",
                     )
-                    import_btn = gr.Button("Import Grades from CSV")
+                    import_btn = gr.Button("Import from CSV")
                     import_result = gr.Textbox(label="Import report", lines=10)
 
         with gr.Tab("Dashboard"):
@@ -320,6 +398,23 @@ def build_app() -> gr.Blocks:
                 x_title="Letter Grade",
                 y_title="Count",
             )
+
+        with gr.Tab("Extra"):
+            gr.Markdown(
+                "### Database maintenance\n"
+                "Clear all students, courses, and grades from the SQLite database.\n\n"
+                "**Warning:** this cannot be undone."
+            )
+            confirm_clear = gr.Checkbox(
+                label="I understand this will permanently delete all data",
+                value=False,
+            )
+            reload_sample = gr.Checkbox(
+                label="Reload sample data after clearing",
+                value=False,
+            )
+            clear_btn = gr.Button("Clear Database", variant="stop")
+            clear_result = gr.Textbox(label="Result")
 
         add_student_btn.click(
             add_student,
@@ -364,14 +459,47 @@ def build_app() -> gr.Blocks:
         )
 
         export_btn.click(
-            export_grades_csv,
+            export_csv,
+            inputs=csv_entity,
             outputs=[export_file, export_result],
         )
 
         import_btn.click(
-            import_grades_csv,
-            inputs=import_file,
+            import_csv,
+            inputs=[csv_entity, import_file],
             outputs=import_result,
+        ).then(
+            refresh_all_lists_and_dropdowns,
+            outputs=[
+                students_list,
+                courses_list,
+                student_report_id,
+                grade_student,
+                course_report_id,
+                grade_course,
+            ],
+        )
+
+        csv_entity.change(
+            csv_format_help,
+            inputs=csv_entity,
+            outputs=csv_help,
+        )
+
+        clear_btn.click(
+            clear_database,
+            inputs=[confirm_clear, reload_sample],
+            outputs=clear_result,
+        ).then(
+            refresh_all_lists_and_dropdowns,
+            outputs=[
+                students_list,
+                courses_list,
+                student_report_id,
+                grade_student,
+                course_report_id,
+                grade_course,
+            ],
         )
 
         def refresh_dashboard() -> tuple[str, pd.DataFrame]:

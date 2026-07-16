@@ -65,6 +65,21 @@ def test_store_record_and_list_grades(grade_store: GradeStore) -> None:
     assert grade_store.get_student_grades("S001")[0].score == 85
 
 
+def test_store_clear_all(grade_store: GradeStore) -> None:
+    from notenverwaltung.models.grade import Grade
+
+    student = Student("S001", "Anna", "Schmidt", "anna@example.com")
+    course = Course("CS101", "Intro to Programming")
+    grade_store.add_student(student)
+    grade_store.add_course(course)
+    grade_store.record_grade(Grade(student, course, 85, "2026-01-15"))
+
+    grade_store.clear_all()
+    assert grade_store.list_students() == []
+    assert grade_store.list_courses() == []
+    assert grade_store.list_grades() == []
+
+
 def test_gradebook_with_sqlite_store_matches_memory() -> None:
     memory_book = GradeBook()
     sqlite_store = SqliteGradeStore(":memory:")

@@ -7,6 +7,7 @@ from pathlib import Path
 from notenverwaltung.models.course import Course
 from notenverwaltung.exceptions import (
     CourseNotFoundError,
+    DuplicateEntryError,
     PersistenceError,
     StudentNotFoundError,
 )
@@ -19,6 +20,17 @@ GRADE_CSV_LINE_PATTERN = re.compile(
     r"^(?P<student_id>[^,]+),(?P<course_id>[^,]+),"
     r"(?P<score>-?\d+(?:\.\d+)?),(?P<date>\d{4}-\d{2}-\d{2})"
     r"(?:,(?P<notes>.*))?$"
+)
+
+STUDENT_CSV_LINE_PATTERN = re.compile(
+    r"^(?P<student_id>[^,]+),(?P<first_name>[^,]+),"
+    r"(?P<last_name>[^,]+),(?P<email>[^,]+)$"
+)
+
+COURSE_CSV_LINE_PATTERN = re.compile(
+    r"^(?P<course_id>[^,]+),(?P<name>[^,]+)"
+    r"(?:,(?P<max_grade>\d+(?:\.\d+)?))?"
+    r"(?:,(?P<passing_grade>\d+(?:\.\d+)?))?$"
 )
 
 
@@ -217,6 +229,50 @@ class GradeBook:
 
         return cls.from_dict(data, store=store)
 
+    def export_students_csv(self, path: Path | str) -> None:
+        file_path = Path(path)
+        try:
+            with file_path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.writer(handle)
+                writer.writerow(
+                    ["student_id", "first_name", "last_name", "email"]
+                )
+                for student in self._store.list_students():
+                    writer.writerow(
+                        [
+                            student.student_id,
+                            student.first_name,
+                            student.last_name,
+                            student.email,
+                        ]
+                    )
+        except OSError as exc:
+            raise PersistenceError(
+                f"Failed to export students to {file_path}: {exc}"
+            ) from exc
+
+    def export_courses_csv(self, path: Path | str) -> None:
+        file_path = Path(path)
+        try:
+            with file_path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.writer(handle)
+                writer.writerow(
+                    ["course_id", "name", "max_grade", "passing_grade"]
+                )
+                for course in self._store.list_courses():
+                    writer.writerow(
+                        [
+                            course.course_id,
+                            course.name,
+                            course.max_grade,
+                            course.passing_grade,
+                        ]
+                    )
+        except OSError as exc:
+            raise PersistenceError(
+                f"Failed to export courses to {file_path}: {exc}"
+            ) from exc
+
     def export_grades_csv(self, path: Path | str) -> None:
         file_path = Path(path)
         try:
@@ -239,6 +295,113 @@ class GradeBook:
             raise PersistenceError(
                 f"Failed to export grades to {file_path}: {exc}"
             ) from exc
+
+    def import_students_csv(self, path: Path | str) -> CsvImportReport:
+        file_path = Path(path)
+        report = CsvImportReport()
+
+        try:
+            lines = file_path.read_text(encoding="utf-8").splitlines()
+        except OSError as exc:
+            raise PersistenceError(
+                f"Failed to read students from {file_path}: {exc}"
+            ) from exc
+
+        for line_number, line in enumerate(lines, start=1):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if line_number == 1 and stripped.lower().startswith("student_id"):
+                continue
+
+            match = STUDENT_CSV_LINE_PATTERN.match(stripped)
+            if not match:
+                report.skipped += 1
+                report.errors.append(f"Line {line_number}: invalid format")
+                continue
+
+            student_id = match.group("student_id").strip()
+            first_name = match.group("first_name").strip()
+            last_name = match.group("last_name").strip()
+            email = match.group("email").strip()
+
+            try:
+                self.add_student(Student(student_id, first_name, last_name, email))
+            except DuplicateEntryError:
+                report.skipped += 1
+                report.errors.append(
+                    f"Line {line_number}: duplicate student {student_id} skipped"
+                )
+                continue
+            except ValueError as exc:
+                report.skipped += 1
+                report.errors.append(f"Line {line_number}: {exc}")
+                continue
+
+            report.imported += 1
+
+        return report
+
+    def import_courses_csv(self, path: Path | str) -> CsvImportReport:
+        file_path = Path(path)
+        report = CsvImportReport()
+
+        try:
+            lines = file_path.read_text(encoding="utf-8").splitlines()
+        except OSError as exc:
+            raise PersistenceError(
+                f"Failed to read courses from {file_path}: {exc}"
+            ) from exc
+
+        for line_number, line in enumerate(lines, start=1):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if line_number == 1 and stripped.lower().startswith("course_id"):
+                continue
+
+            match = COURSE_CSV_LINE_PATTERN.match(stripped)
+            if not match:
+                report.skipped += 1
+                report.errors.append(f"Line {line_number}: invalid format")
+                continue
+
+            course_id = match.group("course_id").strip()
+            name = match.group("name").strip()
+            max_grade = (
+                float(match.group("max_grade"))
+                if match.group("max_grade")
+                else 100.0
+            )
+            passing_grade = (
+                float(match.group("passing_grade"))
+                if match.group("passing_grade")
+                else 50.0
+            )
+
+            try:
+                self.add_course(
+                    Course(
+                        course_id,
+                        name,
+                        max_grade=max_grade,
+                        passing_grade=passing_grade,
+                    )
+                )
+            except DuplicateEntryError:
+                report.skipped += 1
+                report.errors.append(
+                    f"Line {line_number}: duplicate course {course_id} skipped"
+                )
+                continue
+            except ValueError as exc:
+                report.skipped += 1
+                report.errors.append(f"Line {line_number}: {exc}")
+                continue
+
+            report.imported += 1
+
+        return report
 
     def import_grades_csv(self, path: Path | str) -> CsvImportReport:
         file_path = Path(path)

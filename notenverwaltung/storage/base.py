@@ -45,3 +45,7 @@ class GradeStore(ABC):
     @abstractmethod
     def list_grades(self) -> list[Grade]:
         """Return all grades."""
+
+    @abstractmethod
+    def clear_all(self) -> None:
+        """Remove all students, courses, and grades."""

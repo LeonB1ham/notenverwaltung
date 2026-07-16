@@ -48,6 +48,12 @@ class GradeDatabase:
     def close(self) -> None:
         self._conn.close()
 
+    def clear_all(self) -> None:
+        self._conn.execute("DELETE FROM grades")
+        self._conn.execute("DELETE FROM courses")
+        self._conn.execute("DELETE FROM students")
+        self._conn.commit()
+
     def _create_schema(self) -> None:
         self._conn.executescript(SCHEMA)
         self._conn.commit()

@@ -68,3 +68,6 @@ class SqliteGradeStore(GradeStore):
 
     def list_grades(self) -> list[Grade]:
         return self._database.list_grades()
+
+    def clear_all(self) -> None:
+        self._database.clear_all()

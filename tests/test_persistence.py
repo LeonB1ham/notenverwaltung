@@ -67,6 +67,20 @@ def test_export_grades_csv(tmp_path, sample_gradebook: GradeBook) -> None:
     assert "S001,CS101,85,2026-01-15,solid work" in content
 
 
+def test_export_students_and_courses_csv(tmp_path, sample_gradebook: GradeBook) -> None:
+    students_path = tmp_path / "students.csv"
+    courses_path = tmp_path / "courses.csv"
+    sample_gradebook.export_students_csv(students_path)
+    sample_gradebook.export_courses_csv(courses_path)
+
+    students = students_path.read_text(encoding="utf-8")
+    courses = courses_path.read_text(encoding="utf-8")
+    assert "student_id,first_name,last_name,email" in students
+    assert "S001,Anna,Schmidt,anna@example.com" in students
+    assert "course_id,name,max_grade,passing_grade" in courses
+    assert "CS101,Intro to Programming,100.0,50.0" in courses
+
+
 def test_csv_round_trip(tmp_path, sample_gradebook: GradeBook) -> None:
     csv_path = tmp_path / "grades.csv"
     sample_gradebook.export_grades_csv(csv_path)
@@ -136,6 +150,46 @@ def test_import_grades_csv_skips_duplicates(tmp_path) -> None:
     assert report.skipped == 2
     assert any("duplicate" in error for error in report.errors)
     assert len(gb.grades) == 2
+
+
+def test_import_students_and_courses_csv(tmp_path) -> None:
+    gb = GradeBook()
+    students_path = tmp_path / "students.csv"
+    courses_path = tmp_path / "courses.csv"
+    students_path.write_text(
+        "\n".join(
+            [
+                "student_id,first_name,last_name,email",
+                "S001,Anna,Schmidt,anna@example.com",
+                "S001,Anna,Schmidt,anna@example.com",
+                "S002,Ben,Mueller,ben@example.com",
+                "bad-line",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    courses_path.write_text(
+        "\n".join(
+            [
+                "course_id,name,max_grade,passing_grade",
+                "CS101,Intro to Programming,100,50",
+                "CS101,Intro to Programming,100,50",
+                "CS102,Data Structures",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    students_report = gb.import_students_csv(students_path)
+    courses_report = gb.import_courses_csv(courses_path)
+
+    assert students_report.imported == 2
+    assert students_report.skipped == 2
+    assert courses_report.imported == 2
+    assert courses_report.skipped == 1
+    assert len(gb.students) == 2
+    assert len(gb.courses) == 2
+    assert gb.courses["CS102"].max_grade == 100.0
 
 
 def test_import_grades_csv_missing_file_raises(tmp_path) -> None:

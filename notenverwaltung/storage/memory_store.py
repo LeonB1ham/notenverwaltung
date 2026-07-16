@@ -58,3 +58,8 @@ class InMemoryGradeStore(GradeStore):
 
     def list_grades(self) -> list[Grade]:
         return list(self._grades)
+
+    def clear_all(self) -> None:
+        self._grades.clear()
+        self._courses.clear()
+        self._students.clear()
