@@ -934,7 +934,12 @@ def build_app() -> gr.Blocks:
 
 
 def main() -> None:
-    build_app().launch(theme=gr.Theme.from_hub("VikramSingh178/Webui-Theme"))
+    build_app().launch(
+        theme=gr.Theme.from_hub("VikramSingh178/Webui-Theme"),
+        server_name="127.0.0.1",
+        server_port=7860,
+        share=False,
+    )
 
 
 if __name__ == "__main__":
