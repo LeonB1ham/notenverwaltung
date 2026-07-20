@@ -403,12 +403,8 @@ def refresh_all_lists_and_dropdowns() -> tuple:
 
 
 def dashboard_stats() -> tuple[str, dict[str, int]]:
-    grades = GRADE_BOOK.store.list_grades()
-    distribution = {"A": 0, "B": 0, "C": 0, "D": 0, "F": 0}
-    for grade in grades:
-        distribution[grade.letter_grade] += 1
-
     summary = TEXT_REPORTS.generate_summary_report(GRADE_BOOK)
+    distribution = GRADE_BOOK.grade_distribution()
     return summary, distribution
 
 
@@ -420,11 +416,7 @@ def grades_for_letter(letter: str | None) -> str:
     if letter not in {"A", "B", "C", "D", "F"}:
         return f"Unknown letter grade: {letter}"
 
-    matching = [
-        grade
-        for grade in GRADE_BOOK.store.list_grades()
-        if grade.letter_grade == letter
-    ]
+    matching = GRADE_BOOK.grades_by_letter(letter)
     if not matching:
         return f"Letter grade: {letter}\n\nNo grades in this category."
 

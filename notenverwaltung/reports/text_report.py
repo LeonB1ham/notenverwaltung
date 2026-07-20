@@ -56,7 +56,7 @@ class TextReportGenerator(ReportGenerator):
 
         average = gradebook.course_average(course_id)
         pass_rate = gradebook.course_pass_rate(course_id)
-        distribution = self._grade_distribution(grades)
+        distribution = gradebook.grade_distribution()
 
         lines.append("-" * 50)
         lines.append(f"Class Average: {average:.1f}")
@@ -80,7 +80,7 @@ class TextReportGenerator(ReportGenerator):
         ]
 
         if grades:
-            distribution = self._grade_distribution(grades)
+            distribution = gradebook.grade_distribution()
             lines.append("")
             lines.append("Overall Grade Distribution:")
             for letter in ("A", "B", "C", "D", "F"):
@@ -105,9 +105,3 @@ class TextReportGenerator(ReportGenerator):
 
         return "\n".join(lines)
 
-    @staticmethod
-    def _grade_distribution(grades: list) -> dict[str, int]:
-        distribution = {"A": 0, "B": 0, "C": 0, "D": 0, "F": 0}
-        for grade in grades:
-            distribution[grade.letter_grade] += 1
-        return distribution

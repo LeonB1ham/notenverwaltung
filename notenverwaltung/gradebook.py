@@ -123,6 +123,21 @@ class GradeBook:
         averages.sort(key=lambda item: item[1], reverse=True)
         return averages[:n]
 
+    def grade_distribution(self) -> dict[str, int]:
+        """Return count of grades per letter (A–F) across all grades."""
+        distribution: dict[str, int] = {"A": 0, "B": 0, "C": 0, "D": 0, "F": 0}
+        for grade in self._store.list_grades():
+            distribution[grade.letter_grade] += 1
+        return distribution
+
+    def grades_by_letter(self, letter: str) -> list[Grade]:
+        """Return all grades that match the given letter grade."""
+        return [
+            grade
+            for grade in self._store.list_grades()
+            if grade.letter_grade == letter.upper()
+        ]
+
     def students_at_risk(self, threshold: float = 60.0) -> list[Student]:
         at_risk = []
         for student in self._store.list_students():

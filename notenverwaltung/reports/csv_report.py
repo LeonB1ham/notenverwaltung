@@ -65,7 +65,7 @@ class CsvReportGenerator(ReportGenerator):
                 ]
             )
         if grades:
-            distribution = self._grade_distribution(grades)
+            distribution = gradebook.grade_distribution()
             writer.writerow([])
             writer.writerow(["class_average", f"{gradebook.course_average(course_id):.1f}"])
             writer.writerow(["pass_rate", f"{gradebook.course_pass_rate(course_id):.1f}"])
@@ -85,7 +85,7 @@ class CsvReportGenerator(ReportGenerator):
 
         grades = gradebook.store.list_grades()
         if grades:
-            distribution = self._grade_distribution(grades)
+            distribution = gradebook.grade_distribution()
             writer.writerow([])
             writer.writerow(["letter_grade", "count"])
             for letter in ("A", "B", "C", "D", "F"):
@@ -113,9 +113,3 @@ class CsvReportGenerator(ReportGenerator):
 
         return output.getvalue()
 
-    @staticmethod
-    def _grade_distribution(grades: list) -> dict[str, int]:
-        distribution = {"A": 0, "B": 0, "C": 0, "D": 0, "F": 0}
-        for grade in grades:
-            distribution[grade.letter_grade] += 1
-        return distribution
