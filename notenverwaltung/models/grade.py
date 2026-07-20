@@ -40,7 +40,10 @@ class Grade:
         return "F"
 
     def __str__(self) -> str:
-        return (
+        base = (
             f"{self.student.full_name} - {self.course.name}: "
             f"{self.score} ({self.letter_grade}) on {self.date}"
         )
+        if self.notes:
+            return f"{base} [{self.notes}]"
+        return base

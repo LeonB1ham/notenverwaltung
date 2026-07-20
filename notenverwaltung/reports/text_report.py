@@ -17,13 +17,16 @@ class TextReportGenerator(ReportGenerator):
             lines.append("No grades recorded.")
             return "\n".join(lines)
 
-        lines.append(f"{'Course':<30} {'Score':>6} {'Letter':>6} {'Status':>8}")
-        lines.append("-" * 50)
+        lines.append(
+            f"{'Course':<28} {'Score':>6} {'Letter':>6} {'Status':>8} {'Notes'}"
+        )
+        lines.append("-" * 70)
         for grade in grades:
             status = "PASS" if grade.is_passing else "FAIL"
+            notes = grade.notes or "-"
             lines.append(
-                f"{grade.course.name:<30} {grade.score:>6.1f} "
-                f"{grade.letter_grade:>6} {status:>8}"
+                f"{grade.course.name:<28} {grade.score:>6.1f} "
+                f"{grade.letter_grade:>6} {status:>8} {notes}"
             )
 
         average = gradebook.student_average(student_id)
@@ -45,18 +48,23 @@ class TextReportGenerator(ReportGenerator):
             lines.append("No grades recorded.")
             return "\n".join(lines)
 
-        lines.append(f"{'Student':<30} {'Score':>6} {'Letter':>6} {'Status':>8}")
-        lines.append("-" * 50)
+        lines.append(
+            f"{'Student':<28} {'Score':>6} {'Letter':>6} {'Status':>8} {'Notes'}"
+        )
+        lines.append("-" * 70)
         for grade in grades:
             status = "PASS" if grade.is_passing else "FAIL"
+            notes = grade.notes or "-"
             lines.append(
-                f"{grade.student.full_name:<30} {grade.score:>6.1f} "
-                f"{grade.letter_grade:>6} {status:>8}"
+                f"{grade.student.full_name:<28} {grade.score:>6.1f} "
+                f"{grade.letter_grade:>6} {status:>8} {notes}"
             )
 
         average = gradebook.course_average(course_id)
         pass_rate = gradebook.course_pass_rate(course_id)
-        distribution = gradebook.grade_distribution()
+        distribution = {"A": 0, "B": 0, "C": 0, "D": 0, "F": 0}
+        for grade in grades:
+            distribution[grade.letter_grade] += 1
 
         lines.append("-" * 50)
         lines.append(f"Class Average: {average:.1f}")

@@ -409,13 +409,14 @@ def grades_for_letter(letter: str | None) -> str:
         f"Count: {len(matching)}",
         f"Average score: {average:.1f}",
         "",
-        f"{'Student':<28} {'Course':<28} {'Score':>6} {'Date':<12}",
-        "-" * 78,
+        f"{'Student':<24} {'Course':<24} {'Score':>6} {'Date':<12} {'Notes'}",
+        "-" * 90,
     ]
     for grade in matching:
+        notes = grade.notes or "-"
         lines.append(
-            f"{grade.student.full_name:<28} {grade.course.name:<28} "
-            f"{grade.score:>6.1f} {grade.date:<12}"
+            f"{grade.student.full_name:<24} {grade.course.name:<24} "
+            f"{grade.score:>6.1f} {grade.date:<12} {notes}"
         )
     return "\n".join(lines)
 
@@ -920,8 +921,9 @@ def main() -> None:
     build_app().launch(
         theme=gr.Theme.from_hub("VikramSingh178/Webui-Theme"),
         server_name="127.0.0.1",
-        server_port=7860,
+        #server_port=7860,
         share=False,
+        inbrowser=True
     )
 
 

@@ -15,7 +15,15 @@ class CsvReportGenerator(ReportGenerator):
         writer.writerow([student.student_id, student.full_name, student.email])
         writer.writerow([])
         writer.writerow(
-            ["course_id", "course_name", "score", "letter_grade", "status", "date"]
+            [
+                "course_id",
+                "course_name",
+                "score",
+                "letter_grade",
+                "status",
+                "date",
+                "notes",
+            ]
         )
         for grade in grades:
             writer.writerow(
@@ -26,6 +34,7 @@ class CsvReportGenerator(ReportGenerator):
                     grade.letter_grade,
                     "PASS" if grade.is_passing else "FAIL",
                     grade.date,
+                    grade.notes,
                 ]
             )
         if grades:
@@ -51,6 +60,7 @@ class CsvReportGenerator(ReportGenerator):
                 "letter_grade",
                 "status",
                 "date",
+                "notes",
             ]
         )
         for grade in grades:
@@ -62,10 +72,13 @@ class CsvReportGenerator(ReportGenerator):
                     grade.letter_grade,
                     "PASS" if grade.is_passing else "FAIL",
                     grade.date,
+                    grade.notes,
                 ]
             )
         if grades:
-            distribution = gradebook.grade_distribution()
+            distribution = {"A": 0, "B": 0, "C": 0, "D": 0, "F": 0}
+            for grade in grades:
+                distribution[grade.letter_grade] += 1
             writer.writerow([])
             writer.writerow(["class_average", f"{gradebook.course_average(course_id):.1f}"])
             writer.writerow(["pass_rate", f"{gradebook.course_pass_rate(course_id):.1f}"])
