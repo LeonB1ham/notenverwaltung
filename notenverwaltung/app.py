@@ -8,36 +8,19 @@ from pathlib import Path
 import gradio as gr
 import pandas as pd
 
-from notenverwaltung.gradebook import GradeBook
+from notenverwaltung.bootstrap import (
+    DB_PATH,
+    EXPORT_DIR,
+    create_gradebook,
+    seed_sample_data,
+)
 from notenverwaltung.models.course import Course
 from notenverwaltung.models.student import Student
 from notenverwaltung.reports.csv_report import CsvReportGenerator
 from notenverwaltung.reports.text_report import TextReportGenerator
-from notenverwaltung.storage.sqlite_store import SqliteGradeStore
 
-DB_PATH = Path(__file__).resolve().parent.parent / "grades.db"
-EXPORT_DIR = Path(__file__).resolve().parent.parent / "exports"
 TEXT_REPORTS = TextReportGenerator()
 CSV_REPORTS = CsvReportGenerator()
-
-
-def seed_sample_data(gradebook: GradeBook) -> None:
-    gradebook.add_student(Student("S001", "Anna", "Schmidt", "anna@example.com"))
-    gradebook.add_student(Student("S002", "Ben", "Mueller", "ben@example.com"))
-    gradebook.add_course(Course("CS101", "Intro to Programming"))
-    gradebook.add_course(Course("CS102", "Data Structures"))
-    gradebook.record_grade("S001", "CS101", 85, "2026-01-15")
-    gradebook.record_grade("S001", "CS102", 92, "2026-01-20")
-    gradebook.record_grade("S002", "CS101", 45, "2026-01-15")
-
-
-def create_gradebook() -> GradeBook:
-    store = SqliteGradeStore(str(DB_PATH))
-    gradebook = GradeBook(_store=store)
-    if not gradebook.list_students() and not gradebook.list_courses():
-        seed_sample_data(gradebook)
-    return gradebook
-
 
 GRADE_BOOK = create_gradebook()
 
