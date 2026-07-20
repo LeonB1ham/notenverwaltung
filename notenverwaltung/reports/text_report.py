@@ -4,7 +4,7 @@ from notenverwaltung.reports.base import ReportGenerator
 
 class TextReportGenerator(ReportGenerator):
     def generate_student_report(self, student_id: str, gradebook: GradeBook) -> str:
-        student = gradebook.store.get_student(student_id)
+        student = gradebook.get_student(student_id)
         grades = gradebook.get_student_grades(student_id)
 
         lines = [
@@ -32,7 +32,7 @@ class TextReportGenerator(ReportGenerator):
         return "\n".join(lines)
 
     def generate_course_report(self, course_id: str, gradebook: GradeBook) -> str:
-        course = gradebook.store.get_course(course_id)
+        course = gradebook.get_course(course_id)
         grades = gradebook.get_course_grades(course_id)
 
         lines = [
@@ -67,9 +67,9 @@ class TextReportGenerator(ReportGenerator):
         return "\n".join(lines)
 
     def generate_summary_report(self, gradebook: GradeBook) -> str:
-        students = gradebook.store.list_students()
-        courses = gradebook.store.list_courses()
-        grades = gradebook.store.list_grades()
+        students = gradebook.list_students()
+        courses = gradebook.list_courses()
+        grades = gradebook.list_grades()
 
         lines = [
             "Grade Book Summary Report",

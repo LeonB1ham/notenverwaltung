@@ -7,7 +7,7 @@ from notenverwaltung.reports.base import ReportGenerator
 
 class CsvReportGenerator(ReportGenerator):
     def generate_student_report(self, student_id: str, gradebook: GradeBook) -> str:
-        student = gradebook.store.get_student(student_id)
+        student = gradebook.get_student(student_id)
         grades = gradebook.get_student_grades(student_id)
         output = io.StringIO()
         writer = csv.writer(output)
@@ -36,7 +36,7 @@ class CsvReportGenerator(ReportGenerator):
         return output.getvalue()
 
     def generate_course_report(self, course_id: str, gradebook: GradeBook) -> str:
-        course = gradebook.store.get_course(course_id)
+        course = gradebook.get_course(course_id)
         grades = gradebook.get_course_grades(course_id)
         output = io.StringIO()
         writer = csv.writer(output)
@@ -79,11 +79,11 @@ class CsvReportGenerator(ReportGenerator):
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow(["metric", "value"])
-        writer.writerow(["total_students", len(gradebook.store.list_students())])
-        writer.writerow(["total_courses", len(gradebook.store.list_courses())])
-        writer.writerow(["total_grades", len(gradebook.store.list_grades())])
+        writer.writerow(["total_students", len(gradebook.list_students())])
+        writer.writerow(["total_courses", len(gradebook.list_courses())])
+        writer.writerow(["total_grades", len(gradebook.list_grades())])
 
-        grades = gradebook.store.list_grades()
+        grades = gradebook.list_grades()
         if grades:
             distribution = gradebook.grade_distribution()
             writer.writerow([])
