@@ -527,15 +527,16 @@ def build_app() -> gr.Blocks:
         gr.Markdown(f"Database: `{DB_PATH}`")
         with gr.Row():
             refresh_lists_btn = gr.Button("Refresh lists", variant="secondary")
-        list_sync_timer = gr.Timer(5)
 
         with gr.Tab("Students"):
             gr.Markdown("### Students")
             student_picker = gr.Dropdown(
                 choices=initial_student_choices,
                 label="Select student to edit (leave empty to add new)",
+                info="Type to search by ID or name",
                 value=None,
                 allow_custom_value=False,
+                filterable=True,
             )
             clear_student_btn = gr.Button("New Student / Clear Form")
             with gr.Row():
@@ -548,7 +549,9 @@ def build_app() -> gr.Blocks:
             student_report_id = gr.Dropdown(
                 choices=initial_student_choices,
                 label="Student for Report",
+                info="Type to search by ID or name",
                 value=initial_student_choices[0] if initial_student_choices else None,
+                filterable=True,
             )
             student_report_btn = gr.Button("View Student Report")
             student_report_output = gr.Textbox(label="Student Report", lines=12)
@@ -558,8 +561,10 @@ def build_app() -> gr.Blocks:
             course_picker = gr.Dropdown(
                 choices=initial_course_choices,
                 label="Select course to edit (leave empty to add new)",
+                info="Type to search by ID or title",
                 value=None,
                 allow_custom_value=False,
+                filterable=True,
             )
             clear_course_btn = gr.Button("New Course / Clear Form")
             with gr.Row():
@@ -577,7 +582,9 @@ def build_app() -> gr.Blocks:
             course_report_id = gr.Dropdown(
                 choices=initial_course_choices,
                 label="Course for Report",
+                info="Type to search by ID or title",
                 value=initial_course_choices[0] if initial_course_choices else None,
+                filterable=True,
             )
             course_report_btn = gr.Button("View Course Statistics")
             course_report_output = gr.Textbox(label="Course Report", lines=12)
@@ -586,12 +593,16 @@ def build_app() -> gr.Blocks:
             grade_student = gr.Dropdown(
                 choices=initial_student_choices,
                 label="Student",
+                info="Type to search by ID or name",
                 value=initial_student_choices[0] if initial_student_choices else None,
+                filterable=True,
             )
             grade_course = gr.Dropdown(
                 choices=initial_course_choices,
                 label="Course",
+                info="Type to search by ID or title",
                 value=initial_course_choices[0] if initial_course_choices else None,
+                filterable=True,
             )
             grade_score = gr.Slider(minimum=0, maximum=100, label="Score", value=75)
             grade_date = gr.DateTime(
@@ -612,8 +623,10 @@ def build_app() -> gr.Blocks:
             report_entity = gr.Dropdown(
                 choices=[],
                 label="Student/Course ID",
+                info="Type to search",
                 value=None,
                 visible=False,
+                filterable=True,
             )
             generate_csv_btn = gr.Button("Generate CSV Report")
             csv_output = gr.Textbox(label="CSV Output", lines=12)
@@ -713,11 +726,6 @@ def build_app() -> gr.Blocks:
         ]
 
         refresh_lists_btn.click(
-            sync_entity_dropdowns,
-            inputs=list_dropdown_inputs,
-            outputs=list_dropdown_outputs,
-        )
-        list_sync_timer.tick(
             sync_entity_dropdowns,
             inputs=list_dropdown_inputs,
             outputs=list_dropdown_outputs,
