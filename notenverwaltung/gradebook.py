@@ -1,11 +1,10 @@
-import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from notenverwaltung import csv_io
+from notenverwaltung import json_io
 from notenverwaltung.csv_io import CsvImportReport
-from notenverwaltung.exceptions import PersistenceError
 from notenverwaltung.models.course import Course
 from notenverwaltung.models.grade import Grade
 from notenverwaltung.models.student import Student
@@ -155,90 +154,20 @@ class GradeBook:
         ]
 
     def to_dict(self) -> dict:
-        return {
-            "students": [
-                {
-                    "student_id": student.student_id,
-                    "first_name": student.first_name,
-                    "last_name": student.last_name,
-                    "email": student.email,
-                }
-                for student in self._store.list_students()
-            ],
-            "courses": [
-                {
-                    "course_id": course.course_id,
-                    "name": course.name,
-                    "max_grade": course.max_grade,
-                    "passing_grade": course.passing_grade,
-                }
-                for course in self._store.list_courses()
-            ],
-            "grades": [
-                {
-                    "student_id": grade.student.student_id,
-                    "course_id": grade.course.course_id,
-                    "score": float(grade.score),
-                    "date": grade.date,
-                    "notes": grade.notes,
-                }
-                for grade in self._store.list_grades()
-            ],
-        }
+        return json_io.to_dict(self)
 
     @classmethod
     def from_dict(cls, data: dict, store: GradeStore | None = None) -> "GradeBook":
-        gradebook = cls(_store=store) if store is not None else cls()
-
-        for student_data in data.get("students", []):
-            gradebook.add_student(Student(**student_data))
-
-        for course_data in data.get("courses", []):
-            gradebook.add_course(Course(**course_data))
-
-        for grade_data in data.get("grades", []):
-            gradebook.record_grade(
-                grade_data["student_id"],
-                grade_data["course_id"],
-                grade_data["score"],
-                grade_data["date"],
-                grade_data.get("notes", ""),
-            )
-
-        return gradebook
+        return json_io.from_dict(data, store=store)
 
     def save_json(self, path: Path | str) -> None:
-        file_path = Path(path)
-        try:
-            file_path.write_text(
-                json.dumps(self.to_dict(), indent=2),
-                encoding="utf-8",
-            )
-        except OSError as exc:
-            raise PersistenceError(
-                f"Failed to save grade book to {file_path}: {exc}"
-            ) from exc
+        json_io.save_json(self, path)
 
     @classmethod
     def load_json(
         cls, path: Path | str, store: GradeStore | None = None
     ) -> "GradeBook":
-        file_path = Path(path)
-        try:
-            content = file_path.read_text(encoding="utf-8")
-        except FileNotFoundError as exc:
-            raise PersistenceError(f"Grade book file not found: {file_path}") from exc
-        except OSError as exc:
-            raise PersistenceError(
-                f"Failed to read grade book from {file_path}: {exc}"
-            ) from exc
-
-        try:
-            data = json.loads(content)
-        except json.JSONDecodeError as exc:
-            raise PersistenceError(f"Invalid JSON in {file_path}: {exc}") from exc
-
-        return cls.from_dict(data, store=store)
+        return json_io.load_json(path, store=store)
 
     def export_students_csv(self, path: Path | str) -> None:
         csv_io.export_students_csv(self, path)
