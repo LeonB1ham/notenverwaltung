@@ -3,42 +3,14 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from notenverwaltung import csv_io
+from notenverwaltung.csv_io import CsvImportReport
+from notenverwaltung.exceptions import PersistenceError
 from notenverwaltung.models.course import Course
-from notenverwaltung.exceptions import (
-    CourseNotFoundError,
-    DuplicateEntryError,
-    PersistenceError,
-    StudentNotFoundError,
-)
 from notenverwaltung.models.grade import Grade
+from notenverwaltung.models.student import Student
 from notenverwaltung.storage.base import GradeStore
 from notenverwaltung.storage.memory_store import InMemoryGradeStore
-from notenverwaltung.models.student import Student
-from notenverwaltung import csv_io
-
-GRADE_CSV_LINE_PATTERN = re.compile(
-    r"^(?P<student_id>[^,]+),(?P<course_id>[^,]+),"
-    r"(?P<score>-?\d+(?:\.\d+)?),(?P<date>\d{4}-\d{2}-\d{2})"
-    r"(?:,(?P<notes>.*))?$"
-)
-
-STUDENT_CSV_LINE_PATTERN = re.compile(
-    r"^(?P<student_id>[^,]+),(?P<first_name>[^,]+),"
-    r"(?P<last_name>[^,]+),(?P<email>[^,]+)$"
-)
-
-COURSE_CSV_LINE_PATTERN = re.compile(
-    r"^(?P<course_id>[^,]+),(?P<name>[^,]+)"
-    r"(?:,(?P<max_grade>\d+(?:\.\d+)?))?"
-    r"(?:,(?P<passing_grade>\d+(?:\.\d+)?))?$"
-)
-
-
-@dataclass
-class CsvImportReport:
-    imported: int = 0
-    skipped: int = 0
-    errors: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -278,189 +250,10 @@ class GradeBook:
         csv_io.export_grades_csv(self, path)
 
     def import_students_csv(self, path: Path | str) -> CsvImportReport:
-        file_path = Path(path)
-        report = CsvImportReport()
-
-        try:
-            lines = file_path.read_text(encoding="utf-8").splitlines()
-        except OSError as exc:
-            raise PersistenceError(
-                f"Failed to read students from {file_path}: {exc}"
-            ) from exc
-
-        for line_number, line in enumerate(lines, start=1):
-            stripped = line.strip()
-            if not stripped:
-                continue
-            if line_number == 1 and stripped.lower().startswith("student_id"):
-                continue
-
-            match = STUDENT_CSV_LINE_PATTERN.match(stripped)
-            if not match:
-                report.skipped += 1
-                report.errors.append(f"Line {line_number}: invalid format")
-                continue
-
-            student_id = match.group("student_id").strip()
-            first_name = match.group("first_name").strip()
-            last_name = match.group("last_name").strip()
-            email = match.group("email").strip()
-
-            try:
-                self.add_student(Student(student_id, first_name, last_name, email))
-            except DuplicateEntryError:
-                report.skipped += 1
-                report.errors.append(
-                    f"Line {line_number}: duplicate student {student_id} skipped"
-                )
-                continue
-            except ValueError as exc:
-                report.skipped += 1
-                report.errors.append(f"Line {line_number}: {exc}")
-                continue
-
-            report.imported += 1
-
-        return report
+        return csv_io.import_students_csv(self, path)
 
     def import_courses_csv(self, path: Path | str) -> CsvImportReport:
-        file_path = Path(path)
-        report = CsvImportReport()
-
-        try:
-            lines = file_path.read_text(encoding="utf-8").splitlines()
-        except OSError as exc:
-            raise PersistenceError(
-                f"Failed to read courses from {file_path}: {exc}"
-            ) from exc
-
-        for line_number, line in enumerate(lines, start=1):
-            stripped = line.strip()
-            if not stripped:
-                continue
-            if line_number == 1 and stripped.lower().startswith("course_id"):
-                continue
-
-            match = COURSE_CSV_LINE_PATTERN.match(stripped)
-            if not match:
-                report.skipped += 1
-                report.errors.append(f"Line {line_number}: invalid format")
-                continue
-
-            course_id = match.group("course_id").strip()
-            name = match.group("name").strip()
-            max_grade = (
-                float(match.group("max_grade"))
-                if match.group("max_grade")
-                else 100.0
-            )
-            passing_grade = (
-                float(match.group("passing_grade"))
-                if match.group("passing_grade")
-                else 50.0
-            )
-
-            try:
-                self.add_course(
-                    Course(
-                        course_id,
-                        name,
-                        max_grade=max_grade,
-                        passing_grade=passing_grade,
-                    )
-                )
-            except DuplicateEntryError:
-                report.skipped += 1
-                report.errors.append(
-                    f"Line {line_number}: duplicate course {course_id} skipped"
-                )
-                continue
-            except ValueError as exc:
-                report.skipped += 1
-                report.errors.append(f"Line {line_number}: {exc}")
-                continue
-
-            report.imported += 1
-
-        return report
+        return csv_io.import_courses_csv(self, path)
 
     def import_grades_csv(self, path: Path | str) -> CsvImportReport:
-        file_path = Path(path)
-        report = CsvImportReport()
-
-        try:
-            lines = file_path.read_text(encoding="utf-8").splitlines()
-        except OSError as exc:
-            raise PersistenceError(
-                f"Failed to read grades from {file_path}: {exc}"
-            ) from exc
-
-        for line_number, line in enumerate(lines, start=1):
-            stripped = line.strip()
-            if not stripped:
-                continue
-            if line_number == 1 and stripped.lower().startswith("student_id"):
-                continue
-
-            match = GRADE_CSV_LINE_PATTERN.match(stripped)
-            if not match:
-                report.skipped += 1
-                report.errors.append(f"Line {line_number}: invalid format")
-                continue
-
-            student_id = match.group("student_id")
-            course_id = match.group("course_id")
-            score = float(match.group("score"))
-            date = match.group("date")
-            notes = match.group("notes") or ""
-
-            try:
-                self._store.get_student(student_id)
-            except StudentNotFoundError:
-                report.skipped += 1
-                report.errors.append(
-                    f"Line {line_number}: student {student_id} not found"
-                )
-                continue
-
-            try:
-                self._store.get_course(course_id)
-            except CourseNotFoundError:
-                report.skipped += 1
-                report.errors.append(
-                    f"Line {line_number}: course {course_id} not found"
-                )
-                continue
-
-            if self._grade_exists(student_id, course_id, score, date, notes):
-                report.skipped += 1
-                report.errors.append(f"Line {line_number}: duplicate grade skipped")
-                continue
-
-            try:
-                self.record_grade(student_id, course_id, score, date, notes)
-            except ValueError as exc:
-                report.skipped += 1
-                report.errors.append(f"Line {line_number}: {exc}")
-                continue
-
-            report.imported += 1
-
-        return report
-
-    def _grade_exists(
-        self,
-        student_id: str,
-        course_id: str,
-        score: float,
-        date: str,
-        notes: str = "",
-    ) -> bool:
-        return any(
-            grade.student.student_id == student_id
-            and grade.course.course_id == course_id
-            and float(grade.score) == float(score)
-            and grade.date == date
-            and (grade.notes or "") == (notes or "")
-            for grade in self._store.list_grades()
-        )
+        return csv_io.import_grades_csv(self, path)
