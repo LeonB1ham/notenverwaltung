@@ -34,7 +34,7 @@ def seed_sample_data(gradebook: GradeBook) -> None:
 def create_gradebook() -> GradeBook:
     store = SqliteGradeStore(str(DB_PATH))
     gradebook = GradeBook(_store=store)
-    if not gradebook.store.list_students() and not gradebook.store.list_courses():
+    if not gradebook.list_students() and not gradebook.list_courses():
         seed_sample_data(gradebook)
     return gradebook
 
@@ -43,24 +43,24 @@ GRADE_BOOK = create_gradebook()
 
 
 def student_ids() -> list[str]:
-    return [student.student_id for student in GRADE_BOOK.store.list_students()]
+    return [student.student_id for student in GRADE_BOOK.list_students()]
 
 
 def course_ids() -> list[str]:
-    return [course.course_id for course in GRADE_BOOK.store.list_courses()]
+    return [course.course_id for course in GRADE_BOOK.list_courses()]
 
 
 def student_choices() -> list[str]:
     return [
         f"{student.student_id}: {student.full_name}"
-        for student in GRADE_BOOK.store.list_students()
+        for student in GRADE_BOOK.list_students()
     ]
 
 
 def course_choices() -> list[str]:
     return [
         f"{course.course_id}: {course.name}"
-        for course in GRADE_BOOK.store.list_courses()
+        for course in GRADE_BOOK.list_courses()
     ]
 
 
@@ -114,7 +114,7 @@ def save_course(
     try:
         selected_id = _parse_choice_id(selected)
         if selected_id:
-            existing = GRADE_BOOK.store.get_course(selected_id)
+            existing = GRADE_BOOK.get_course(selected_id)
             GRADE_BOOK.update_course(
                 Course(
                     selected_id,
@@ -157,7 +157,7 @@ def load_student_for_edit(selected: str | None):
             "",
             gr.update(value="Add Student"),
         )
-    student = GRADE_BOOK.store.get_student(student_id)
+    student = GRADE_BOOK.get_student(student_id)
     return (
         gr.update(value=student.student_id, interactive=False),
         student.first_name,
@@ -176,7 +176,7 @@ def load_course_for_edit(selected: str | None):
             50,
             gr.update(value="Add Course"),
         )
-    course = GRADE_BOOK.store.get_course(course_id)
+    course = GRADE_BOOK.get_course(course_id)
     return (
         gr.update(value=course.course_id, interactive=False),
         course.name,
@@ -327,17 +327,17 @@ def export_csv(entity: str) -> tuple[str | None, str]:
         if entity == "Students":
             export_path = EXPORT_DIR / "students_export.csv"
             GRADE_BOOK.export_students_csv(export_path)
-            count = len(GRADE_BOOK.store.list_students())
+            count = len(GRADE_BOOK.list_students())
             label = "student(s)"
         elif entity == "Courses":
             export_path = EXPORT_DIR / "courses_export.csv"
             GRADE_BOOK.export_courses_csv(export_path)
-            count = len(GRADE_BOOK.store.list_courses())
+            count = len(GRADE_BOOK.list_courses())
             label = "course(s)"
         else:
             export_path = EXPORT_DIR / "grades_export.csv"
             GRADE_BOOK.export_grades_csv(export_path)
-            count = len(GRADE_BOOK.store.list_grades())
+            count = len(GRADE_BOOK.list_grades())
             label = "grade(s)"
         return str(export_path), f"Exported {count} {label} to {export_path.name}."
     except Exception as exc:
@@ -363,7 +363,7 @@ def clear_database(confirmed: bool, reload_sample: bool) -> str:
     if not confirmed:
         return "Error: confirm the action first (check the box)."
     try:
-        GRADE_BOOK.store.clear_all()
+        GRADE_BOOK.clear_all()
         if reload_sample:
             seed_sample_data(GRADE_BOOK)
             return "Database cleared and sample data reloaded."

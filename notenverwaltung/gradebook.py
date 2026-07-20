@@ -63,17 +63,35 @@ class GradeBook:
     def grades(self) -> list[Grade]:
         return self._store.list_grades()
 
+    def list_students(self) -> list[Student]:
+        return self._store.list_students()
+
+    def get_student(self, student_id: str) -> Student:
+        return self._store.get_student(student_id)
+
     def add_student(self, student: Student) -> None:
         self._store.add_student(student)
 
     def update_student(self, student: Student) -> None:
         self._store.update_student(student)
 
+    def list_courses(self) -> list[Course]:
+        return self._store.list_courses()
+
+    def get_course(self, course_id: str) -> Course:
+        return self._store.get_course(course_id)
+
     def add_course(self, course: Course) -> None:
         self._store.add_course(course)
 
     def update_course(self, course: Course) -> None:
         self._store.update_course(course)
+
+    def list_grades(self) -> list[Grade]:
+        return self._store.list_grades()
+
+    def clear_all(self) -> None:
+        self._store.clear_all()
 
     def record_grade(
         self,
