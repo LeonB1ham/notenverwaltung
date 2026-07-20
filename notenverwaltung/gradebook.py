@@ -1,4 +1,3 @@
-import csv
 import json
 import re
 from dataclasses import dataclass, field
@@ -15,6 +14,7 @@ from notenverwaltung.models.grade import Grade
 from notenverwaltung.storage.base import GradeStore
 from notenverwaltung.storage.memory_store import InMemoryGradeStore
 from notenverwaltung.models.student import Student
+from notenverwaltung import csv_io
 
 GRADE_CSV_LINE_PATTERN = re.compile(
     r"^(?P<student_id>[^,]+),(?P<course_id>[^,]+),"
@@ -269,71 +269,13 @@ class GradeBook:
         return cls.from_dict(data, store=store)
 
     def export_students_csv(self, path: Path | str) -> None:
-        file_path = Path(path)
-        try:
-            with file_path.open("w", encoding="utf-8", newline="") as handle:
-                writer = csv.writer(handle)
-                writer.writerow(
-                    ["student_id", "first_name", "last_name", "email"]
-                )
-                for student in self._store.list_students():
-                    writer.writerow(
-                        [
-                            student.student_id,
-                            student.first_name,
-                            student.last_name,
-                            student.email,
-                        ]
-                    )
-        except OSError as exc:
-            raise PersistenceError(
-                f"Failed to export students to {file_path}: {exc}"
-            ) from exc
+        csv_io.export_students_csv(self, path)
 
     def export_courses_csv(self, path: Path | str) -> None:
-        file_path = Path(path)
-        try:
-            with file_path.open("w", encoding="utf-8", newline="") as handle:
-                writer = csv.writer(handle)
-                writer.writerow(
-                    ["course_id", "name", "max_grade", "passing_grade"]
-                )
-                for course in self._store.list_courses():
-                    writer.writerow(
-                        [
-                            course.course_id,
-                            course.name,
-                            course.max_grade,
-                            course.passing_grade,
-                        ]
-                    )
-        except OSError as exc:
-            raise PersistenceError(
-                f"Failed to export courses to {file_path}: {exc}"
-            ) from exc
+        csv_io.export_courses_csv(self, path)
 
     def export_grades_csv(self, path: Path | str) -> None:
-        file_path = Path(path)
-        try:
-            with file_path.open("w", encoding="utf-8", newline="") as handle:
-                writer = csv.writer(handle)
-                writer.writerow(
-                    ["student_id", "course_id", "score", "date", "notes"]
-                )
-                for grade in self._store.list_grades():
-                    writer.writerow(
-                        [
-                            grade.student.student_id,
-                            grade.course.course_id,
-                            grade.score,
-                            grade.date,
-                            grade.notes,
-                        ]
-                    )
-        except OSError as exc:
-            raise PersistenceError(
-                f"Failed to export grades to {file_path}: {exc}"
-            ) from exc
+        csv_io.export_grades_csv(self, path)
 
     def import_students_csv(self, path: Path | str) -> CsvImportReport:
         file_path = Path(path)
